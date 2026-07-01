@@ -1,0 +1,15 @@
+aws_region              = "us-east-2"
+admin_email             = "walter@ghostweasel.net"
+operator_cidr           = "0.0.0.0/0"
+elastic_ip_address      = "18.216.236.251"
+name_prefix             = "engress"
+base_domain             = "engress.io"
+domain_suffix           = ".edge.engress.io"
+enable_control_instance = true
+control_origin_hostname = "core-origin.engress.io"
+enable_frontend         = true
+enable_eks              = true
+decommission_ec2        = true
+deploy_target           = "eks"
+spa_bucket_name         = "flux-spa-327796148992"
+amplify_domain          = "main.dftigsyg375wb.amplifyapp.com"

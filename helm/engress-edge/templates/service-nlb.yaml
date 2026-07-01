@@ -1,0 +1,22 @@
+{{- if .Values.service.nlb.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "engress-edge.fullname" . }}-nlb
+  labels:
+    {{- include "engress-edge.labels" . | nindent 4 }}
+  annotations:
+    {{- toYaml .Values.service.nlb.annotations | nindent 4 }}
+spec:
+  type: {{ .Values.service.nlb.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "engress-edge.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    {{- range .Values.service.nlb.ports }}
+    - name: {{ .name }}
+      port: {{ .port }}
+      targetPort: {{ .targetPort }}
+      protocol: {{ .protocol }}
+    {{- end }}
+{{- end }}

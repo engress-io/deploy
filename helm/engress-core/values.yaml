@@ -1,0 +1,55 @@
+replicaCount: 2
+
+image:
+  repository: 327796148992.dkr.ecr.us-east-2.amazonaws.com/engress-core
+  tag: latest
+  pullPolicy: Always
+
+serviceAccount:
+  create: true
+  name: engress-core
+  annotations: {}
+
+service:
+  port: 8080
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /api/healthz
+    alb.ingress.kubernetes.io/healthcheck-port: "8080"
+  hosts:
+    - host: core-origin.engress.io
+      paths:
+        - path: /
+          pathType: Prefix
+
+config:
+  baseDomain: engress.io
+  domainSuffix: .edge.engress.io
+  corsOrigin: https://engress.io
+  awsRegion: us-east-2
+
+# Populated at deploy time from SSM engress-session-key (see ops workflow).
+sessionKeySecret: engress-core-secrets
+
+pdb:
+  minAvailable: 1

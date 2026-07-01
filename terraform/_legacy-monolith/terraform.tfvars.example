@@ -1,0 +1,46 @@
+# Copy to terraform.tfvars and edit (terraform.tfvars is gitignored).
+
+aws_region     = "us-east-2"
+admin_email    = "you@example.com"
+operator_cidr  = "YOUR.IP.ADDR/32" # restrict SSH; 443/4433 stay public
+
+# Manually managed Elastic IP — Terraform associates only; never creates or releases.
+elastic_ip_address = "18.216.236.251"
+
+# Custom domain (engress.io on Spaceship DNS)
+name_prefix   = "engress"
+base_domain   = "engress.io"
+domain_suffix = ".edge.engress.io"
+
+# github_repo               = "https://github.com/engress-io/core.git"
+# github_branch             = "main"
+# github_token_ssm_parameter = "engress-github-read-token"
+# use_ecr_images             = true     # pull pre-built images (default); false = compile on EC2
+# container_image_tag        = ""       # ECR tag for user-data (default: latest); app-update uses git describe
+# endpoint_subdomain         = "studio"
+# acme_production            = true   # required for Cursor / external HTTPS clients (false = staging)
+# eip_protect                = true   # dev.sh only: legacy destroy guard (see dev-guide)
+# user_data_version          = "1"   # bump to force fresh instance + bootstrap (EIP unchanged)
+# root_volume_gb             = 16     # EBS root disk (Terraform default)
+# swap_size_gb               = 2      # swap file in user-data (go build on t4g.micro)
+# enable_control_instance    = false  # true = separate EC2 for engress-core; CloudFront /api/* -> control-origin
+# control_origin_hostname    = "control-origin.engress.io"  # A -> control instance when split
+# enable_frontend            = false  # Phase D: S3 + CloudFront SPA (see frontend.tf)
+# edge_origin_hostname       = "edge-origin.engress.io"  # A -> EIP; CloudFront /api/* origin
+# spa_bucket_name            = "flux-spa-327796148992"  # REQUIRED in prod — prevents bucket replace
+# enable_eks                 = false
+# decommission_ec2           = false  # true after EKS cutover (destroys EC2; keep enable_frontend=true)
+# deploy_target              = "ec2"  # ec2 | eks | both
+# downloads_bucket_name      = ""     # optional pin during S3 bucket rename cutover
+# pipeline_artifacts_bucket_name = "" # optional pin during S3 bucket rename cutover
+#
+# AWS-native CI/CD (GitHub + CodeBuild + CodePipeline + optional Amplify)
+# enable_aws_ci              = false  # CodePipeline, CodeBuild, downloads bucket
+# enable_amplify               = false  # Amplify Hosting at base_domain (requires enable_aws_ci)
+# github_repo                  = "https://github.com/engress-io/core.git"
+# github_branch                = "main"
+# github_token_ssm_parameter   = "engress-github-read-token"
+#
+# SSM params (EC2 IAM): engress-github-read-token, neon-db-connection-string, clerk-secret-key, next-clerk-publishable-key,
+# clerk-webhook-secret, engress-metrics-ingest-secret
+# EC2 IAM: ssm:GetParameter on engress-github-read-token for git clone

@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "engress-core.fullname" . }}
+  labels:
+    {{- include "engress-core.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "engress-core.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "engress-core.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      containers:
+        - name: core
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+              name: http
+          env:
+            - name: FLUX_USE_SSM
+              value: "1"
+            - name: FLUX_LOG_FORMAT
+              value: json
+            - name: FLUX_BASE_DOMAIN
+              value: {{ .Values.config.baseDomain | quote }}
+            - name: FLUX_DOMAIN_SUFFIX
+              value: {{ .Values.config.domainSuffix | quote }}
+            - name: FLUX_CORS_ORIGIN
+              value: {{ .Values.config.corsOrigin | quote }}
+            - name: AWS_REGION
+              value: {{ .Values.config.awsRegion | quote }}
+            {{- if .Values.sessionKeySecret }}
+            - name: FLUX_SESSION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.sessionKeySecret }}
+                  key: FLUX_SESSION_KEY
+            {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /data/api.yaml
+              subPath: api.yaml
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "engress-core.fullname" . }}-config

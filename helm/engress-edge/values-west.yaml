@@ -1,0 +1,40 @@
+# us-west-1 overlay — edge-only v1 (core stays in us-east-2).
+replicaCount: 2
+
+image:
+  repository: 327796148992.dkr.ecr.us-west-1.amazonaws.com/engress-edge
+  tag: latest
+  pullPolicy: Always
+
+config:
+  baseDomain: engress.io
+  domainSuffix: .edge.engress.io
+  controlApiUrl: https://core-origin.engress.io
+  metricsApiUrl: https://core-origin.engress.io
+  controlOriginHost: edge-origin-west.engress.io
+  mtlsMode: required
+  awsRegion: us-west-1
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+  hosts:
+    - host: edge-origin-west.engress.io
+      paths:
+        - path: /
+          pathType: Prefix
+
+service:
+  nlb:
+    enabled: true
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: external
+      service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+      service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+      service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
+      service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: region=us-west-1

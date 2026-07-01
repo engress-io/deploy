@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "engress-edge.fullname" . }}
+  labels:
+    {{- include "engress-edge.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "engress-edge.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "engress-edge.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      containers:
+        - name: edge
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["edge", "--config", "/data/edge.yaml"]
+          ports:
+            - containerPort: 80
+              name: http
+            - containerPort: 443
+              name: https
+            - containerPort: 4433
+              name: tunnel
+          env:
+            - name: FLUX_USE_SSM
+              value: "0"
+            - name: FLUX_LOG_FORMAT
+              value: json
+            - name: FLUX_CONTROL_API_URL
+              value: {{ .Values.config.controlApiUrl | quote }}
+            - name: FLUX_METRICS_API_URL
+              value: {{ .Values.config.metricsApiUrl | quote }}
+            - name: FLUX_CONTROL_ORIGIN_HOST
+              value: {{ .Values.config.controlOriginHost | quote }}
+            {{- if .Values.edgeSecrets }}
+            - name: FLUX_METRICS_INGEST_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.edgeSecrets }}
+                  key: FLUX_METRICS_INGEST_SECRET
+            - name: FLUX_TUNNEL_CA_CERT
+              value: /data/tunnel-ca/cert.pem
+            - name: FLUX_TUNNEL_CA_KEY
+              value: /data/tunnel-ca/key.pem
+            {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /data/edge.yaml
+              subPath: edge.yaml
+            - name: data
+              mountPath: /data
+            {{- if .Values.edgeSecrets }}
+            - name: tunnel-ca
+              mountPath: /data/tunnel-ca
+              readOnly: true
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "engress-edge.fullname" . }}-config
+        - name: data
+          emptyDir: {}
+        {{- if .Values.edgeSecrets }}
+        - name: tunnel-ca
+          secret:
+            secretName: {{ .Values.edgeSecrets }}
+            items:
+              - key: cert.pem
+                path: cert.pem
+              - key: key.pem
+                path: key.pem
+        {{- end }}

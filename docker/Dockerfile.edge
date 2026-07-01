@@ -1,0 +1,9 @@
+# syntax=docker/dockerfile:1
+# Runtime-only edge image. Compile via scripts/deploy/scripts/build.sh.
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY bin/engress-edge /usr/local/bin/engress-edge
+EXPOSE 80 443 4433
+ENTRYPOINT ["engress-edge"]
+CMD ["edge", "--config", "/data/edge.yaml"]

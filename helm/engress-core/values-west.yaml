@@ -1,0 +1,21 @@
+# us-west-1 overlay — optional west core (requires Neon read replica in SSM).
+replicaCount: 2
+
+image:
+  repository: 327796148992.dkr.ecr.us-west-1.amazonaws.com/engress-core
+  tag: latest
+  pullPolicy: Always
+
+config:
+  baseDomain: engress.io
+  domainSuffix: .edge.engress.io
+  corsOrigin: https://engress.io
+  awsRegion: us-west-1
+  dbReadReplicaSSM: neon-db-read-replica-west-connection-string
+
+ingress:
+  hosts:
+    - host: core-origin-west.engress.io
+      paths:
+        - path: /
+          pathType: Prefix

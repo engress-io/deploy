@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "engress-core.fullname" . }}-config
+  labels:
+    {{- include "engress-core.labels" . | nindent 4 }}
+data:
+  api.yaml: |
+    listen_addr: ":8080"
+    base_domain: {{ .Values.config.baseDomain | quote }}
+    domain_suffix: {{ .Values.config.domainSuffix | quote }}
+    cors_origin: {{ .Values.config.corsOrigin | quote }}
+    db:
+      driver: postgres

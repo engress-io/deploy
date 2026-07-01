@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "engress-edge.fullname" . }}
+  labels:
+    {{- include "engress-edge.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "engress-edge.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}

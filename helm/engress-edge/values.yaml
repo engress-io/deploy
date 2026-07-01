@@ -1,0 +1,76 @@
+replicaCount: 2
+
+image:
+  repository: 327796148992.dkr.ecr.us-east-2.amazonaws.com/engress-edge
+  tag: latest
+  pullPolicy: Always
+
+serviceAccount:
+  create: true
+  name: engress-edge
+  annotations: {}
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+
+service:
+  nlb:
+    enabled: true
+    type: LoadBalancer
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: external
+      service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+      service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+      service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
+    ports:
+      - name: http
+        port: 80
+        targetPort: 80
+        protocol: TCP
+      - name: https
+        port: 443
+        targetPort: 443
+        protocol: TCP
+      - name: tunnel
+        port: 4433
+        targetPort: 4433
+        protocol: TCP
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+  hosts:
+    - host: edge-origin.engress.io
+      paths:
+        - path: /
+          pathType: Prefix
+
+config:
+  baseDomain: engress.io
+  domainSuffix: .edge.engress.io
+  controlApiUrl: http://engress-core:8080
+  metricsApiUrl: http://engress-core:8080
+  controlOriginHost: edge-origin.engress.io
+  mtlsMode: required
+  awsRegion: us-east-2
+
+edgeSecrets: engress-edge-secrets
+
+pdb:
+  minAvailable: 1
