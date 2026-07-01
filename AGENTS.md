@@ -1,5 +1,7 @@
 # Deploy Submodule — Agent Rules
 
+**Loaded on every agent run** via superproject `AGENTS.md` and `.cursor/rules/deploy.mdc` (`alwaysApply: true`).
+
 This submodule owns Terraform, Helm, Docker, and operator scripts. See [docs/deployment-matrix.md](docs/deployment-matrix.md) for the canonical path → action matrix.
 
 ## Mandatory rules for cloud agents

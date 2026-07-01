@@ -2,6 +2,8 @@
 
 Infrastructure and deployment for [engress.io](https://engress.io). Single home for Terraform, Helm, operator scripts, and ops agents.
 
+**Agents:** Rules apply on every run — read [AGENTS.md](AGENTS.md) and [docs/deployment-matrix.md](docs/deployment-matrix.md) before any deploy dispatch.
+
 ## Layers
 
 | Layer | Path | Tool | Frequency |
