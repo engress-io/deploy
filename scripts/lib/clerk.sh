@@ -81,6 +81,16 @@ clerk_pk_frontend_host() {
   echo "$payload" | python3 -c 'import sys,base64; b=sys.stdin.read().strip(); b+="="*((4-len(b)%4)%4); print(base64.b64decode(b).decode().rstrip("$"))' 2>/dev/null || true
 }
 
+clerk_pk_accounts_portal_url() {
+  local pk="$1"
+  local host slug
+  host="$(clerk_pk_frontend_host "$pk")"
+  [[ -n "$host" ]] || return 1
+  slug="${host%%.clerk.accounts.dev}"
+  [[ "$slug" != "$host" ]] || return 1
+  echo "https://${slug}.accounts.dev"
+}
+
 clerk_primary_domain_host() {
   local code body
   body="$(clerk_api GET "/domains")"
