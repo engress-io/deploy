@@ -1,0 +1,28 @@
+# Engress staging Terraform intent (canonical copy — live value in SSM engress-terraform-tfvars-staging)
+# Apply with separate state key: engress/deploy/staging/terraform.tfstate
+
+environment               = "staging"
+aws_region                = "us-east-2"
+admin_email               = "walter@ghostweasel.net"
+operator_cidr             = "0.0.0.0/0"
+name_prefix               = "engress-staging"
+base_domain               = "staging.engress.io"
+domain_suffix             = ".edge.staging.engress.io"
+edge_origin_hostname      = "edge-origin-east.staging.engress.io"
+control_origin_hostname   = "core-origin.staging.engress.io"
+enable_control_instance   = false
+enable_frontend           = true
+enable_eks                = true
+enable_eks_west           = false
+enable_global_accelerator = false
+decommission_ec2          = true
+deploy_target             = "eks"
+acme_production           = false
+eks_system_node_instance_type = "t4g.small"
+eks_system_node_min_size      = 1
+eks_system_node_desired_size  = 1
+eks_system_node_max_size      = 2
+eks_workload_node_min_size    = 1
+eks_workload_node_desired_size = 1
+eks_workload_node_max_size    = 2
+# elastic_ip_address omitted — staging uses EKS NLB only (no legacy EC2 EIP)

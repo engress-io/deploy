@@ -1,4 +1,4 @@
-replicaCount: 2
+replicaCount: 1
 
 image:
   repository: 327796148992.dkr.ecr.us-east-2.amazonaws.com/engress-core
@@ -15,17 +15,14 @@ service:
 
 resources:
   requests:
-    cpu: 100m
-    memory: 256Mi
+    cpu: 50m
+    memory: 192Mi
   limits:
-    cpu: 500m
-    memory: 512Mi
+    cpu: 300m
+    memory: 384Mi
 
 autoscaling:
-  enabled: true
-  minReplicas: 2
-  maxReplicas: 6
-  targetCPUUtilizationPercentage: 70
+  enabled: false
 
 ingress:
   enabled: true
@@ -37,19 +34,19 @@ ingress:
     alb.ingress.kubernetes.io/healthcheck-path: /api/healthz
     alb.ingress.kubernetes.io/healthcheck-port: "8080"
   hosts:
-    - host: core-origin-east.engress.io
+    - host: core-origin.staging.engress.io
       paths:
         - path: /
           pathType: Prefix
 
 config:
-  baseDomain: engress.io
-  domainSuffix: .edge.engress.io
-  corsOrigin: https://engress.io
+  baseDomain: staging.engress.io
+  domainSuffix: .edge.staging.engress.io
+  corsOrigin: https://staging.engress.io
   awsRegion: us-east-2
+  logLevel: debug
 
-# Populated at deploy time from SSM engress-session-key (see ops workflow).
-sessionKeySecret: engress-core-secrets
+sessionKeySecret: engress-core-secrets-staging
 
 pdb:
-  minAvailable: 1
+  minAvailable: 0

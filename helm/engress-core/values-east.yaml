@@ -48,7 +48,6 @@ config:
   corsOrigin: https://engress.io
   awsRegion: us-east-2
 
-# Populated at deploy time from SSM engress-session-key (see ops workflow).
 sessionKeySecret: engress-core-secrets
 
 pdb:

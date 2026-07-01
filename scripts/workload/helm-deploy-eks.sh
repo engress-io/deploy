@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy engress-core and/or engress-edge Helm releases to EKS.
+# Deploy engress-core and/or engress-edge Helm releases to EKS (east or staging).
 set -euo pipefail
 
 DEPLOY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -18,8 +18,8 @@ DEPLOY_CORE=1
 DEPLOY_EDGE=1
 EDGE_IRSA="${ENGRESS_DEPLOY_EDGE_IRSA_ARN:-}"
 CORE_IRSA="${ENGRESS_DEPLOY_CORE_IRSA_ARN:-}"
-EDGE_HOST="${ENGRESS_DEPLOY_EDGE_HOST:-edge-origin.engress.io}"
-CORE_HOST="${ENGRESS_DEPLOY_CORE_HOST:-core-origin.engress.io}"
+EDGE_HOST="${ENGRESS_DEPLOY_EDGE_HOST:-edge-origin-east.engress.io}"
+CORE_HOST="${ENGRESS_DEPLOY_CORE_HOST:-core-origin-east.engress.io}"
 
 CHARTS_ROOT="${ENGRESS_CHARTS_ROOT:-${ENGRESS_DEPLOY_ROOT:-}/helm}"
 if [[ -z "$CHARTS_ROOT" || ! -d "$CHARTS_ROOT" ]]; then
@@ -28,6 +28,17 @@ fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --env)
+      export ENGRESS_ENV="$2"
+      shift 2
+      # shellcheck source=/dev/null
+      source "$DEPLOY_ROOT/scripts/lib/ssm-deploy-config.sh"
+      ENGRESS_DEPLOY_EKS_CLUSTER="${ENGRESS_DEPLOY_EKS_CLUSTER:-engress-east}"
+      EDGE_IRSA="${ENGRESS_DEPLOY_EDGE_IRSA_ARN:-}"
+      CORE_IRSA="${ENGRESS_DEPLOY_CORE_IRSA_ARN:-}"
+      EDGE_HOST="${ENGRESS_DEPLOY_EDGE_HOST:-edge-origin-east.engress.io}"
+      CORE_HOST="${ENGRESS_DEPLOY_CORE_HOST:-core-origin-east.engress.io}"
+      ;;
     --region)
       AWS_REGION="$2"
       shift 2
@@ -36,9 +47,19 @@ while [[ $# -gt 0 ]]; do
       ENGRESS_DEPLOY_EKS_CLUSTER="$2"
       shift 2
       ;;
+    --values-east)
+      EDGE_VALUES+=(-f "$CHARTS_ROOT/engress-edge/values-east.yaml")
+      CORE_VALUES+=(-f "$CHARTS_ROOT/engress-core/values-east.yaml")
+      shift
+      ;;
     --values-west)
       EDGE_VALUES+=(-f "$CHARTS_ROOT/engress-edge/values-west.yaml")
       CORE_VALUES+=(-f "$CHARTS_ROOT/engress-core/values-west.yaml")
+      shift
+      ;;
+    --values-staging)
+      EDGE_VALUES+=(-f "$CHARTS_ROOT/engress-edge/values-staging.yaml")
+      CORE_VALUES+=(-f "$CHARTS_ROOT/engress-core/values-staging.yaml")
       shift
       ;;
     --values)
@@ -61,6 +82,17 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Default value overlays by environment
+if [[ ${#EDGE_VALUES[@]} -eq 0 ]]; then
+  if [[ "${ENGRESS_ENV:-prod}" == "staging" ]]; then
+    EDGE_VALUES+=(-f "$CHARTS_ROOT/engress-edge/values-staging.yaml")
+    CORE_VALUES+=(-f "$CHARTS_ROOT/engress-core/values-staging.yaml")
+  else
+    EDGE_VALUES+=(-f "$CHARTS_ROOT/engress-edge/values-east.yaml")
+    CORE_VALUES+=(-f "$CHARTS_ROOT/engress-core/values-east.yaml")
+  fi
+fi
+
 IMAGE_TAG="${IMAGE_TAG:-$(git -C "$ENGRESS_CORE_ROOT" rev-parse --short HEAD 2>/dev/null || echo latest)}"
 NAMESPACE="${NAMESPACE:-engress}"
 
@@ -69,11 +101,12 @@ if [[ "$AWS_REGION" == "us-west-1" ]]; then
   _ssm_west() {
     aws ssm get-parameter --name "$1" --region us-east-2 --query 'Parameter.Value' --output text 2>/dev/null || true
   }
-  ENGRESS_DEPLOY_EKS_CLUSTER="${ENGRESS_DEPLOY_EKS_CLUSTER:-$(_ssm_west engress-deploy-eks-west-cluster-name)}"
-  EDGE_IRSA="${EDGE_IRSA:-$(_ssm_west engress-deploy-edge-west-irsa-arn)}"
-  CORE_IRSA="${CORE_IRSA:-$(_ssm_west engress-deploy-core-west-irsa-arn)}"
+  local_prefix="${ENGRESS_DEPLOY_SSM_PREFIX:-engress-deploy}"
+  ENGRESS_DEPLOY_EKS_CLUSTER="${ENGRESS_DEPLOY_EKS_CLUSTER:-$(_ssm_west "${local_prefix}-eks-west-cluster-name")}"
+  EDGE_IRSA="${EDGE_IRSA:-$(_ssm_west "${local_prefix}-edge-west-irsa-arn")}"
+  CORE_IRSA="${CORE_IRSA:-$(_ssm_west "${local_prefix}-core-west-irsa-arn")}"
   EDGE_HOST="${EDGE_HOST:-edge-origin-west.engress.io}"
-  if [[ ${#EDGE_VALUES[@]} -eq 0 ]]; then
+  if [[ ${#EDGE_VALUES[@]} -eq 0 || "${EDGE_VALUES[*]}" != *values-west* ]]; then
     EDGE_VALUES+=(-f "$CHARTS_ROOT/engress-edge/values-west.yaml")
   fi
   DEPLOY_CORE="${DEPLOY_WEST_CORE:-0}"
@@ -123,4 +156,4 @@ if [[ "$DEPLOY_EDGE" -eq 1 ]]; then
   kubectl rollout status "deployment/engress-edge" -n "$NAMESPACE" --timeout=120s
 fi
 
-echo "Helm deploy complete (tag=${IMAGE_TAG}, cluster=${ENGRESS_DEPLOY_EKS_CLUSTER}, region=${AWS_REGION})"
+echo "Helm deploy complete (env=${ENGRESS_ENV:-prod}, tag=${IMAGE_TAG}, cluster=${ENGRESS_DEPLOY_EKS_CLUSTER}, region=${AWS_REGION})"
