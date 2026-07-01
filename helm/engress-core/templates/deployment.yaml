@@ -37,6 +37,10 @@ spec:
               value: {{ .Values.config.corsOrigin | quote }}
             - name: AWS_REGION
               value: {{ .Values.config.awsRegion | quote }}
+            {{- if .Values.config.environment }}
+            - name: ENGRESS_ENV
+              value: {{ .Values.config.environment | quote }}
+            {{- end }}
             {{- if .Values.sessionKeySecret }}
             - name: FLUX_SESSION_KEY
               valueFrom:

@@ -40,6 +40,10 @@ spec:
               value: {{ .Values.config.metricsApiUrl | quote }}
             - name: FLUX_CONTROL_ORIGIN_HOST
               value: {{ .Values.config.controlOriginHost | quote }}
+            {{- if .Values.config.environment }}
+            - name: ENGRESS_ENV
+              value: {{ .Values.config.environment | quote }}
+            {{- end }}
             {{- if .Values.edgeSecrets }}
             - name: FLUX_METRICS_INGEST_SECRET
               valueFrom:

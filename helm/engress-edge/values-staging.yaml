@@ -68,6 +68,7 @@ config:
   awsRegion: us-east-2
   acmeProduction: false
   logLevel: debug
+  environment: staging
 
 edgeSecrets: engress-edge-secrets-staging
 
