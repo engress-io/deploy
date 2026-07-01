@@ -92,27 +92,27 @@ A **separate Clerk application** for staging. No shared users/sessions with prod
 
 ### Steps
 
-1. Open [Clerk Dashboard](https://dashboard.clerk.com).
-2. **Create application** (top-left app switcher → Create application)
-   - Name: `Engress Staging`
-   - Sign-in options: match prod (Google, email, etc.) but use **test accounts only**
-3. **API Keys** (sidebar):
-   - Copy **Publishable key** (`pk_test_...` or `pk_live_...` — test keys are fine for staging)
-   - Copy **Secret key** (`sk_test_...`)
-4. **Configure → Domains** (or **Paths** depending on Clerk UI version):
-   - Add allowed origin: `https://staging.engress.io`
-   - Add redirect URLs if you use OAuth callbacks (mirror prod paths under `staging.engress.io`)
-5. **Organizations**: enable if prod uses orgs (Engress tenants are org-scoped).
-6. **Billing** (optional for staging): skip or duplicate `flux-beta` plan only if you need to test billing flows.
+1. Open [Clerk Dashboard](https://dashboard.clerk.com) → **Create application** → name `Engress Staging`.
+2. **API Keys**: copy publishable (`pk_test_...`) and secret (`sk_test_...`) keys.
+3. Store keys in SSM (below) and `STAGING_CLERK_PUBLISHABLE_KEY` in GitHub Actions secrets.
+4. **Configure the instance via API** (do **not** use Dashboard → Domains — dev instances cannot add `staging.engress.io` there; sign-in uses `*.accounts.dev` until you promote to Production):
 
-### Webhook (optional but recommended)
+```bash
+# After SSM keys are set:
+AWS_PROFILE=ghostweasel-flux ./scripts/agent/clerk-auth.sh --staging configure
 
-If you test billing/org sync on staging:
+# Or dispatch from a machine without AWS SSO:
+./scripts/agent/dispatch-ops.sh clerk-configure-staging
+```
 
-1. **Webhooks** → **Add endpoint**
-2. URL: `https://staging.engress.io/api/v1/clerk/webhook`
-3. Events: `organization.*`, `subscription.*` (same as prod — see `internal-docs/core-docs/ops/clerk-billing-ci-setup.md`)
-4. Copy signing secret `whsec_...`
+This whitelists redirect URLs for `https://staging.engress.io/*` and disables the org gate on sign-up (same beta posture as prod).
+
+### Webhook (optional)
+
+Skip for P07A v1 — tenants are created on first JWT. If you test billing/org sync later:
+
+1. **Webhooks** → endpoint `https://staging.engress.io/api/v1/clerk/webhook`
+2. Store `whsec_...` in SSM as `engress-staging-clerk-webhook-secret`
 
 ### Store in SSM
 
