@@ -52,3 +52,17 @@ SSM `engress-terraform-tfvars` is the sole source of `enable_*` flags. Never pas
 | `ops.yml` | Manual/dispatched operator actions |
 
 Full-stack deploy: GitHub Actions → Deploy to EKS → Run workflow → scope `full`.
+
+## Atlas documentation maintenance
+
+Infra, DNS, Clerk, or topology changes **must** update the relevant section in [internal-docs/atlas/](../internal-docs/atlas/README.md) in the same PR:
+
+| Change type | Atlas section |
+|-------------|---------------|
+| DNS / GA / hostnames | `02-network-topology.md` |
+| AWS resources / EKS | `03-aws-inventory.md` |
+| SSM parameters / env vars | `07-secrets-config.md` |
+| CI / deploy workflow | `06-cicd-deploy.md` |
+| Clerk / auth | `05-identity-auth.md` |
+
+After cutovers, re-run `./scripts/agent/atlas-collect.sh` and update `last_verified` headers (monthly cadence or post-incident).
