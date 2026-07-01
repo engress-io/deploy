@@ -9,10 +9,6 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.0"
 
-  lifecycle {
-    prevent_destroy = true
-  }
-
   cluster_name    = local.eks_cluster_name
   cluster_version = var.eks_cluster_version
 

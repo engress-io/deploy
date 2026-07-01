@@ -25,4 +25,5 @@ eks_system_node_max_size      = 2
 eks_workload_node_min_size    = 1
 eks_workload_node_desired_size = 1
 eks_workload_node_max_size    = 2
+spa_bucket_name               = "engress-staging-spa-327796148992"
 # elastic_ip_address omitted — staging uses EKS NLB only (no legacy EC2 EIP)
