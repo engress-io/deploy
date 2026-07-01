@@ -27,15 +27,21 @@ if [[ -z "$BUCKET" ]]; then
   echo "frontend_bucket missing — set ENGRESS_SPA_BUCKET or enable_frontend=true and terraform apply" >&2
   exit 1
 fi
+
+# Production pins (see core/.github/workflows/release.yml APP_CF_DISTRIBUTION_ID)
+DIST_ID="${ENGRESS_CLOUDFRONT_DISTRIBUTION_ID:-E1ABUIC4DB7I86}"
 CF_DOMAIN="$(cd "$TF_DIR" && terraform output -raw cloudfront_domain 2>/dev/null || true)"
-DIST_ID="${ENGRESS_CLOUDFRONT_DISTRIBUTION_ID:-}"
 if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]]; then
-  DIST_ID="$(AWS_PROFILE="${AWS_PROFILE:-}" aws cloudfront list-distributions \
+  DIST_ID="$(aws cloudfront list-distributions \
     --query "DistributionList.Items[?DomainName=='${CF_DOMAIN}'].Id | [0]" --output text 2>/dev/null || true)"
 fi
 if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]]; then
-  DIST_ID="$(AWS_PROFILE="${AWS_PROFILE:-}" aws cloudfront list-distributions \
+  DIST_ID="$(aws cloudfront list-distributions \
     --query "DistributionList.Items[?contains(Aliases.Items, 'engress.io')].Id | [0]" --output text 2>/dev/null || true)"
+fi
+if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]]; then
+  echo "ERROR: CloudFront distribution ID not found — set ENGRESS_CLOUDFRONT_DISTRIBUTION_ID" >&2
+  exit 1
 fi
 
 PK="${VITE_CLERK_PUBLISHABLE_KEY:-}"
@@ -50,12 +56,25 @@ fi
 
 SIGN_UP="${VITE_CLERK_SIGN_UP_ENABLED:-true}"
 
+if [[ ! -d "$WEB/dist" ]]; then
+  echo "ERROR: $WEB/dist missing — run npm run build first" >&2
+  exit 1
+fi
+
+# Fail fast if we are about to ship a stale Oasis bundle.
+if grep -rq 'single pane of glass\|no AWS console required' "$WEB/dist/" 2>/dev/null; then
+  echo "ERROR: dist/ still contains legacy Oasis marketing copy — wrong core ref?" >&2
+  exit 1
+fi
+
+echo "==> dist assets:"
+ls -la "$WEB/dist/assets/" 2>/dev/null | tail -5 || true
+
 echo "==> syncing dist/ to s3://${BUCKET}"
 aws s3 sync "$WEB/dist/" "s3://${BUCKET}/" --delete --region us-east-2
 
-if [[ -n "$DIST_ID" && "$DIST_ID" != "None" ]]; then
-  echo "==> invalidating CloudFront ${DIST_ID}"
-  aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*" --query 'Invalidation.Id' --output text
-fi
+echo "==> invalidating CloudFront ${DIST_ID}"
+INV_ID="$(aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*" --query 'Invalidation.Id' --output text)"
+echo "    invalidation: ${INV_ID}"
 
 echo "==> done — open https://engress.io"

@@ -22,6 +22,7 @@ Terraform (SSM tfvars only — no partial enable_* overrides):
 
 Workloads:
   helm-deploy / helm-deploy-west / helm-deploy-all
+  spa-deploy          Build SPA + S3 sync + CloudFront invalidation only
   install-addons / install-addons-west
   p05-prereqs-check / smoke-test / clerk-refresh
   dns-audit / dns-cutover-ga / dns-cutover-ga-apply / p03-rollout
@@ -34,6 +35,7 @@ VALID_ACTIONS=(
   plan-eks apply-eks plan-eks-west apply-eks-west plan-ga apply-ga
   install-addons install-addons-west p05-prereqs-check
   helm-deploy helm-deploy-west helm-deploy-all
+  spa-deploy
   kubectl-status kubectl-status-west core-rollback dns-audit dns-cutover-ga dns-cutover-ga-apply
   p03-rollout fix-lbs fix-lbs-west deploy-target smoke-test decommission-ec2 recover-frontend clerk-refresh
 )
