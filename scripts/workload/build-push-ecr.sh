@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build linux/arm64 engress-edge + engress-core images and push to ECR. Run from your laptop/CI.
+# Build linux/arm64 engress-edge and/or engress-core images and push to ECR.
 set -euo pipefail
 
 SCRIPTS="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -15,6 +15,30 @@ cd "$ROOT"
 # shellcheck source=/dev/null
 source "$DEPLOY_ROOT/scripts/lib/image-tag.sh"
 cd "$ROOT"
+
+BUILD_EDGE=1
+BUILD_CORE=1
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --edge-only)
+      BUILD_CORE=0
+      shift
+      ;;
+    --core-only)
+      BUILD_EDGE=0
+      shift
+      ;;
+    *)
+      echo "unknown arg: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [[ "$BUILD_EDGE" -eq 0 && "$BUILD_CORE" -eq 0 ]]; then
+  echo "ERROR: at least one of edge or core must be built" >&2
+  exit 1
+fi
 
 TF="${TF:-terraform}"
 
@@ -58,60 +82,64 @@ else
   DOCKER_WORKDIR=/src
 fi
 
-echo "==> compiling engress-edge (${GOOS}/${GOARCH}) tag=${TAG}"
-docker run --rm \
-  "${DOCKER_SRC[@]}" -v "$ROOT/bin:/out" -w "$DOCKER_WORKDIR" \
-  -e CGO_ENABLED=0 -e GOOS="$GOOS" -e GOARCH="$GOARCH" \
-  golang:1.25 \
-  go build -buildvcs=false -tags=ssm -ldflags="${LDFLAGS}" -o /out/engress-edge ./cmd/engress-edge
-
-echo "==> compiling engress-core (${GOOS}/${GOARCH}, ssm) tag=${TAG}"
-docker run --rm \
-  "${DOCKER_SRC[@]}" -v "$ROOT/bin:/out" -w "$DOCKER_WORKDIR" \
-  -e CGO_ENABLED=0 -e GOOS="$GOOS" -e GOARCH="$GOARCH" \
-  golang:1.25 \
-  go build -buildvcs=false -tags=ssm -ldflags="${LDFLAGS}" -o /out/engress-core ./cmd/engress-core
-
 EDGE_IMAGE="${EDGE_REPO}:${TAG}"
 API_IMAGE="${API_REPO}:${TAG}"
+PUSHED=()
 
-echo "==> building + pushing ${EDGE_IMAGE}"
-docker build -f "$ENGRESS_DEPLOY_ROOT/docker/Dockerfile.edge" -t "$EDGE_IMAGE" "$ROOT"
-docker push "$EDGE_IMAGE"
+if [[ "$BUILD_EDGE" -eq 1 ]]; then
+  echo "==> compiling engress-edge (${GOOS}/${GOARCH}) tag=${TAG}"
+  docker run --rm \
+    "${DOCKER_SRC[@]}" -v "$ROOT/bin:/out" -w "$DOCKER_WORKDIR" \
+    -e CGO_ENABLED=0 -e GOOS="$GOOS" -e GOARCH="$GOARCH" \
+    golang:1.25 \
+    go build -buildvcs=false -tags=ssm -ldflags="${LDFLAGS}" -o /out/engress-edge ./cmd/engress-edge
 
-echo "==> building + pushing ${API_IMAGE}"
-docker build -f "$ENGRESS_DEPLOY_ROOT/docker/Dockerfile.core" -t "$API_IMAGE" "$ROOT"
-docker push "$API_IMAGE"
+  echo "==> building + pushing ${EDGE_IMAGE}"
+  docker build -f "$ENGRESS_DEPLOY_ROOT/docker/Dockerfile.edge" -t "$EDGE_IMAGE" "$ROOT"
+  docker push "$EDGE_IMAGE"
+  PUSHED+=("$EDGE_IMAGE")
+  if [[ "$PUSH_LATEST" == "1" && "$TAG" != "latest" ]]; then
+    docker tag "$EDGE_IMAGE" "${EDGE_REPO}:latest"
+    docker push "${EDGE_REPO}:latest"
+  fi
+fi
 
-if [[ "$PUSH_LATEST" == "1" && "$TAG" != "latest" ]]; then
-  docker tag "$EDGE_IMAGE" "${EDGE_REPO}:latest"
-  docker tag "$API_IMAGE" "${API_REPO}:latest"
-  docker push "${EDGE_REPO}:latest"
-  docker push "${API_REPO}:latest"
+if [[ "$BUILD_CORE" -eq 1 ]]; then
+  echo "==> compiling engress-core (${GOOS}/${GOARCH}, ssm) tag=${TAG}"
+  docker run --rm \
+    "${DOCKER_SRC[@]}" -v "$ROOT/bin:/out" -w "$DOCKER_WORKDIR" \
+    -e CGO_ENABLED=0 -e GOOS="$GOOS" -e GOARCH="$GOARCH" \
+    golang:1.25 \
+    go build -buildvcs=false -tags=ssm -ldflags="${LDFLAGS}" -o /out/engress-core ./cmd/engress-core
+
+  echo "==> building + pushing ${API_IMAGE}"
+  docker build -f "$ENGRESS_DEPLOY_ROOT/docker/Dockerfile.core" -t "$API_IMAGE" "$ROOT"
+  docker push "$API_IMAGE"
+  PUSHED+=("$API_IMAGE")
+  if [[ "$PUSH_LATEST" == "1" && "$TAG" != "latest" ]]; then
+    docker tag "$API_IMAGE" "${API_REPO}:latest"
+    docker push "${API_REPO}:latest"
+  fi
 fi
 
 # shellcheck source=deploy/lib/ecr-image-exists.sh
 source "$SCRIPTS/../lib/ecr-image-exists.sh"
 if [[ "${ECR_SKIP_VERIFY:-0}" != "1" ]]; then
-  if ! flux_ecr_pair_exists "$REGION" "$EDGE_REPO" "$API_REPO" "$TAG"; then
-    echo "WARN: ECR verify could not confirm tag ${TAG} (missing ecr:DescribeImages? set ECR_SKIP_VERIFY=1)" >&2
-    echo "  engress-edge tags: $(flux_ecr_list_tags "$REGION" "$EDGE_REPO" 8)" >&2
-    echo "  engress-core tags: $(flux_ecr_list_tags "$REGION" "$API_REPO" 8)" >&2
+  if [[ "$BUILD_EDGE" -eq 1 && "$BUILD_CORE" -eq 1 ]]; then
+    if ! flux_ecr_pair_exists "$REGION" "$EDGE_REPO" "$API_REPO" "$TAG"; then
+      echo "WARN: ECR verify could not confirm tag ${TAG}" >&2
+    fi
+  elif [[ "$BUILD_EDGE" -eq 1 ]]; then
+    flux_ecr_image_exists "$REGION" "$EDGE_REPO" "$TAG" || echo "WARN: edge tag ${TAG} not verified" >&2
+  else
+    flux_ecr_image_exists "$REGION" "$API_REPO" "$TAG" || echo "WARN: core tag ${TAG} not verified" >&2
   fi
 fi
-if [[ "$TAG" != "latest" ]] && ! flux_ecr_image_exists "$REGION" "$EDGE_REPO" "latest"; then
-  echo "WARN: :latest tag missing on engress-edge (PUSH_LATEST=${PUSH_LATEST})" >&2
-fi
 
-cat <<EOF
-
-Pushed:
-  ${EDGE_IMAGE}
-  ${API_IMAGE}
-
-Deploy on EC2:
-  cd deploy/terraform && ./dev.sh app-update
-  # or full Phase A: ./dev.sh phase-a-deploy -auto-approve
-
-Image tag: ${TAG}
-EOF
+echo ""
+echo "Pushed:"
+for img in "${PUSHED[@]}"; do
+  echo "  ${img}"
+done
+echo ""
+echo "Image tag: ${TAG}"

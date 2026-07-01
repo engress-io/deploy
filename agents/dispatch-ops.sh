@@ -20,13 +20,19 @@ Terraform (SSM tfvars only — no partial enable_* overrides):
   decommission-ec2          EC2 teardown (explicit vars only)
   recover-frontend          CloudFront/SPA recovery
 
-Workloads:
-  helm-deploy / helm-deploy-west / helm-deploy-all
+Workloads (prefer component-scoped actions):
+  helm-deploy-core    Helm upgrade engress-core only (east)
+  helm-deploy-edge    Helm upgrade engress-edge (east + west)
+  helm-deploy         Helm upgrade both charts (east)
+  helm-deploy-west    Helm upgrade edge only (west)
+  helm-deploy-all     Full east + west (manual reconcile only)
   spa-deploy          Build SPA + S3 sync + CloudFront invalidation only
   install-addons / install-addons-west
   p05-prereqs-check / smoke-test / clerk-refresh
   dns-audit / dns-cutover-ga / dns-cutover-ga-apply / p03-rollout
   fix-lbs / fix-lbs-west / deploy-target value=eks
+
+See deploy/docs/deployment-matrix.md for path → action rules.
 EOF
 }
 
@@ -34,7 +40,7 @@ VALID_ACTIONS=(
   plan-stack apply-stack plan-foundation apply-foundation audit-ssm-tfvars
   plan-eks apply-eks plan-eks-west apply-eks-west plan-ga apply-ga
   install-addons install-addons-west p05-prereqs-check
-  helm-deploy helm-deploy-west helm-deploy-all
+  helm-deploy helm-deploy-core helm-deploy-edge helm-deploy-west helm-deploy-all
   spa-deploy
   kubectl-status kubectl-status-west core-rollback dns-audit dns-cutover-ga dns-cutover-ga-apply
   p03-rollout fix-lbs fix-lbs-west deploy-target smoke-test decommission-ec2 recover-frontend clerk-refresh
@@ -55,6 +61,12 @@ if [[ "$valid" -ne 1 ]]; then
   usage >&2
   exit 1
 fi
+
+case "$ACTION" in
+  helm-deploy-all|apply-foundation|p03-rollout|fix-lbs)
+    echo "WARN: full-scope action '${ACTION}' — confirm this is intentional (see deploy/docs/deployment-matrix.md)" >&2
+    ;;
+esac
 
 shift || true
 GH_REPO="${GH_REPO:-engress-io/engress}"
