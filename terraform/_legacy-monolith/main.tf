@@ -67,7 +67,7 @@ locals {
   ecr_api_image       = "${aws_ecr_repository.api.repository_url}:${local.container_image_tag}"
   scripts_root        = abspath("${path.module}/../../../scripts")
   enable_eks          = var.enable_eks
-  edge_public_ip      = var.decommission_ec2 ? var.elastic_ip_address : data.aws_eip.edge[0].public_ip
+  edge_public_ip      = var.decommission_ec2 ? (var.elastic_ip_address != "" ? var.elastic_ip_address : "0.0.0.0") : data.aws_eip.edge[0].public_ip
 }
 
 resource "aws_security_group" "edge" {

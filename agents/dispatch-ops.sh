@@ -20,13 +20,22 @@ Terraform (SSM tfvars only — no partial enable_* overrides):
   decommission-ec2          EC2 teardown (explicit vars only)
   recover-frontend          CloudFront/SPA recovery
 
-Workloads:
-  helm-deploy / helm-deploy-west / helm-deploy-all
+Workloads (prefer component-scoped actions):
+  helm-deploy-core    Helm upgrade engress-core only (east)
+  helm-deploy-edge    Helm upgrade engress-edge (east + west)
+  helm-deploy-east    Helm upgrade both charts (east only)
+  helm-deploy-staging Helm upgrade both charts (staging east)
+  helm-deploy         Helm upgrade both charts (east) — alias for helm-deploy-east
+  helm-deploy-west    Helm upgrade edge only (west)
+  helm-deploy-all     Full east + west (manual reconcile only)
   spa-deploy          Build SPA + S3 sync + CloudFront invalidation only
+  docs-deploy         Build Docusaurus + S3 sync under docs/ + CF invalidation
   install-addons / install-addons-west
   p05-prereqs-check / smoke-test / clerk-refresh
   dns-audit / dns-cutover-ga / dns-cutover-ga-apply / p03-rollout
   fix-lbs / fix-lbs-west / deploy-target value=eks
+
+See deploy/docs/deployment-matrix.md for path → action rules.
 EOF
 }
 
@@ -34,8 +43,8 @@ VALID_ACTIONS=(
   plan-stack apply-stack plan-foundation apply-foundation audit-ssm-tfvars
   plan-eks apply-eks plan-eks-west apply-eks-west plan-ga apply-ga
   install-addons install-addons-west p05-prereqs-check
-  helm-deploy helm-deploy-west helm-deploy-all
-  spa-deploy
+  helm-deploy helm-deploy-core helm-deploy-edge helm-deploy-east helm-deploy-staging helm-deploy-west helm-deploy-all
+  spa-deploy docs-deploy
   kubectl-status kubectl-status-west core-rollback dns-audit dns-cutover-ga dns-cutover-ga-apply
   p03-rollout fix-lbs fix-lbs-west deploy-target smoke-test decommission-ec2 recover-frontend clerk-refresh
 )
@@ -55,6 +64,12 @@ if [[ "$valid" -ne 1 ]]; then
   usage >&2
   exit 1
 fi
+
+case "$ACTION" in
+  helm-deploy-all|apply-foundation|p03-rollout|fix-lbs)
+    echo "WARN: full-scope action '${ACTION}' — confirm this is intentional (see deploy/docs/deployment-matrix.md)" >&2
+    ;;
+esac
 
 shift || true
 GH_REPO="${GH_REPO:-engress-io/engress}"
@@ -96,6 +111,22 @@ if [[ -z "${GITHUB_ACTIONS:-}${CI:-}" ]] && command -v aws >/dev/null 2>&1 && aw
       ;;
     clerk-refresh)
       exec "$SCRIPT_DIR/clerk-auth.sh" refresh
+      ;;
+    helm-deploy-east|helm-deploy|helm-deploy-core)
+      exec "$DEPLOY_ROOT/scripts/workload/helm-deploy-eks-east.sh" ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
+      ;;
+    helm-deploy-staging)
+      exec "$DEPLOY_ROOT/scripts/workload/helm-deploy-eks-staging.sh" ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
+      ;;
+    helm-deploy-edge)
+      exec "$DEPLOY_ROOT/scripts/workload/helm-deploy-eks-east.sh" --edge-only
+      exec "$DEPLOY_ROOT/scripts/workload/helm-deploy-eks-west.sh"
+      ;;
+    helm-deploy-west)
+      exec "$DEPLOY_ROOT/scripts/workload/helm-deploy-eks-west.sh" ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
+      ;;
+    smoke-test)
+      exec "$DEPLOY_ROOT/scripts/smoke/smoke-test.sh"
       ;;
   esac
 fi

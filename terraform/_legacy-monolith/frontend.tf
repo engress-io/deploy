@@ -22,8 +22,8 @@ provider "aws" {
 
 locals {
   frontend_enabled      = var.enable_frontend
-  edge_origin_hostname  = var.edge_origin_hostname != "" ? var.edge_origin_hostname : "edge-origin.${var.base_domain}"
-  control_origin_host   = var.control_origin_hostname != "" ? var.control_origin_hostname : "control-origin.${var.base_domain}"
+  edge_origin_hostname  = var.edge_origin_hostname != "" ? var.edge_origin_hostname : "edge-origin-east.${var.base_domain}"
+  control_origin_host   = var.control_origin_hostname != "" ? var.control_origin_hostname : "core-origin-east.${var.base_domain}"
   api_origin_hostname   = var.enable_control_instance ? local.control_origin_host : local.edge_origin_hostname
   frontend_bucket_name  = var.spa_bucket_name != "" ? var.spa_bucket_name : "flux-spa-${data.aws_caller_identity.current.account_id}"
   frontend_domain_names = [var.base_domain, "get.${var.base_domain}", "downloads.${var.base_domain}"]

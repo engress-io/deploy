@@ -2,6 +2,8 @@
 
 Infrastructure and deployment for [engress.io](https://engress.io). Single home for Terraform, Helm, operator scripts, and ops agents.
 
+**Agents:** Rules apply on every run — read [AGENTS.md](AGENTS.md) and [docs/deployment-matrix.md](docs/deployment-matrix.md) before any deploy dispatch.
+
 ## Layers
 
 | Layer | Path | Tool | Frequency |
@@ -16,9 +18,12 @@ Infrastructure and deployment for [engress.io](https://engress.io). Single home 
 # From superproject root (deploy submodule checked out)
 ./deploy/agents/dispatch-ops.sh plan-stack stack=eks-east
 ./deploy/agents/dispatch-ops.sh apply-stack stack=eks-east
-./deploy/agents/dispatch-ops.sh helm-deploy-all
-./deploy/agents/dispatch-ops.sh spa-deploy
+./deploy/agents/dispatch-ops.sh helm-deploy-core   # core only
+./deploy/agents/dispatch-ops.sh helm-deploy-edge   # edge east + west
+./deploy/agents/dispatch-ops.sh spa-deploy         # UI only
 ```
+
+**Deployment rules:** See [docs/deployment-matrix.md](docs/deployment-matrix.md) — path → action matrix for CI and agents. Full-stack deploy (`helm-deploy-all`) is manual only.
 
 ## Safety
 

@@ -1,5 +1,6 @@
 # Engress production Terraform intent (canonical copy — live value in SSM engress-terraform-tfvars)
 
+environment               = "prod"
 aws_region                = "us-east-2"
 admin_email               = "walter@ghostweasel.net"
 operator_cidr             = "0.0.0.0/0"
@@ -8,7 +9,8 @@ name_prefix               = "engress"
 base_domain               = "engress.io"
 domain_suffix             = ".edge.engress.io"
 enable_control_instance   = true
-control_origin_hostname   = "core-origin.engress.io"
+edge_origin_hostname      = "edge-origin-east.engress.io"
+control_origin_hostname   = "core-origin-east.engress.io"
 enable_frontend           = true
 enable_eks                = true
 enable_eks_west           = true

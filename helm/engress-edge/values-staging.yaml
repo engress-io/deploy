@@ -1,4 +1,4 @@
-replicaCount: 2
+replicaCount: 1
 
 image:
   repository: 327796148992.dkr.ecr.us-east-2.amazonaws.com/engress-edge
@@ -12,17 +12,14 @@ serviceAccount:
 
 resources:
   requests:
-    cpu: 100m
-    memory: 128Mi
+    cpu: 50m
+    memory: 96Mi
   limits:
-    cpu: 500m
-    memory: 512Mi
+    cpu: 300m
+    memory: 384Mi
 
 autoscaling:
-  enabled: true
-  minReplicas: 2
-  maxReplicas: 20
-  targetCPUUtilizationPercentage: 70
+  enabled: false
 
 service:
   nlb:
@@ -56,21 +53,24 @@ ingress:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
     alb.ingress.kubernetes.io/healthcheck-path: /healthz
   hosts:
-    - host: edge-origin-east.engress.io
+    - host: edge-origin-east.staging.engress.io
       paths:
         - path: /
           pathType: Prefix
 
 config:
-  baseDomain: engress.io
-  domainSuffix: .edge.engress.io
+  baseDomain: staging.engress.io
+  domainSuffix: .edge.staging.engress.io
   controlApiUrl: http://engress-core:8080
   metricsApiUrl: http://engress-core:8080
-  controlOriginHost: edge-origin-east.engress.io
+  controlOriginHost: edge-origin-east.staging.engress.io
   mtlsMode: required
   awsRegion: us-east-2
+  acmeProduction: false
+  logLevel: debug
+  environment: staging
 
-edgeSecrets: engress-edge-secrets
+edgeSecrets: engress-edge-secrets-staging
 
 pdb:
-  minAvailable: 1
+  minAvailable: 0

@@ -112,8 +112,11 @@ fi
 echo "==> dist assets:"
 ls -la "$WEB/dist/assets/" 2>/dev/null | tail -5 || true
 
-echo "==> syncing dist/ to s3://${BUCKET}"
-aws s3 sync "$WEB/dist/" "s3://${BUCKET}/" --delete --region us-east-2
+echo "==> syncing dist/ to s3://${BUCKET} (preserving docs/ and downloads/ prefixes)"
+aws s3 sync "$WEB/dist/" "s3://${BUCKET}/" --delete \
+  --exclude "docs/*" \
+  --exclude "downloads/*" \
+  --region us-east-2
 
 echo "==> invalidating CloudFront ${DIST_ID}"
 INV_ID="$(aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*" --query 'Invalidation.Id' --output text)"

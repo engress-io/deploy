@@ -43,9 +43,9 @@ module "eks" {
       name           = "system"
       instance_types = [var.eks_system_node_instance_type]
       ami_type       = "AL2023_ARM_64_STANDARD"
-      min_size       = 2
-      max_size       = 3
-      desired_size   = 2
+      min_size       = var.eks_system_node_min_size
+      max_size       = var.eks_system_node_max_size
+      desired_size   = var.eks_system_node_desired_size
 
       labels = {
         role = "system"
@@ -55,9 +55,9 @@ module "eks" {
       name           = "workload"
       instance_types = [var.eks_workload_node_instance_type]
       ami_type       = "AL2023_ARM_64_STANDARD"
-      min_size       = 2
+      min_size       = var.eks_workload_node_min_size
       max_size       = var.eks_workload_max_nodes
-      desired_size   = 2
+      desired_size   = var.eks_workload_node_desired_size
 
       labels = {
         role = "workload"

@@ -11,6 +11,17 @@ variable "aws_profile" {
   nullable    = true
 }
 
+variable "environment" {
+  type        = string
+  description = "Deployment environment (prod or staging). Controls SSM prefix and default hostnames."
+  default     = "prod"
+
+  validation {
+    condition     = contains(["prod", "staging"], var.environment)
+    error_message = "environment must be prod or staging"
+  }
+}
+
 variable "name_prefix" {
   type        = string
   description = "Resource name prefix"
@@ -107,7 +118,8 @@ variable "user_data_version" {
 
 variable "elastic_ip_address" {
   type        = string
-  description = "Pre-existing Elastic IP (manually managed in AWS; Terraform associates but never creates or releases it)"
+  description = "Pre-existing Elastic IP (manually managed in AWS; Terraform associates but never creates or releases it). Optional when decommission_ec2=true (EKS-only staging)."
+  default     = ""
 }
 
 variable "base_domain" {
@@ -244,6 +256,31 @@ variable "eks_system_node_instance_type" {
   type        = string
   description = "Instance type for system node group"
   default     = "t4g.medium"
+}
+
+variable "eks_system_node_min_size" {
+  type    = number
+  default = 2
+}
+
+variable "eks_system_node_desired_size" {
+  type    = number
+  default = 2
+}
+
+variable "eks_system_node_max_size" {
+  type    = number
+  default = 3
+}
+
+variable "eks_workload_node_min_size" {
+  type    = number
+  default = 2
+}
+
+variable "eks_workload_node_desired_size" {
+  type    = number
+  default = 2
 }
 
 variable "eks_workload_node_instance_type" {
