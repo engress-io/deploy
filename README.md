@@ -25,6 +25,12 @@ Infrastructure and deployment for [engress.io](https://engress.io). Single home 
 
 **Deployment rules:** See [docs/deployment-matrix.md](docs/deployment-matrix.md) — path → action matrix for CI and agents. Full-stack deploy (`helm-deploy-all`) is manual only.
 
+## Helm charts
+
+Canonical charts: **`helm/engress-core`**, **`helm/engress-edge`**. See [helm/README.md](helm/README.md).
+
+The superproject `charts/` directory is a legacy mirror (not a submodule). Charts belong in this repo with Terraform and deploy scripts — not in `core`/`edge` app repos.
+
 ## Safety
 
 - **SSM tfvars only** — `engress-terraform-tfvars` is the sole source of `enable_*` flags
