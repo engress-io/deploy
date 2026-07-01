@@ -28,21 +28,25 @@ if [[ -z "$BUCKET" ]]; then
   exit 1
 fi
 
-# Production pins (see core/.github/workflows/release.yml APP_CF_DISTRIBUTION_ID)
-DIST_ID="${ENGRESS_CLOUDFRONT_DISTRIBUTION_ID:-E1ABUIC4DB7I86}"
-CF_DOMAIN="$(cd "$TF_DIR" && terraform output -raw cloudfront_domain 2>/dev/null || true)"
+# Resolve CloudFront distribution (E1ABUIC4DB7I86 was destroyed in Jun 2026 recovery).
+DIST_ID="${ENGRESS_CLOUDFRONT_DISTRIBUTION_ID:-}"
 if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]]; then
-  DIST_ID="$(aws cloudfront list-distributions \
-    --query "DistributionList.Items[?DomainName=='${CF_DOMAIN}'].Id | [0]" --output text 2>/dev/null || true)"
+  DIST_ID="$(aws ssm get-parameter --name engress-cloudfront-distribution-id --region "$REGION" --query 'Parameter.Value' --output text 2>/dev/null || true)"
 fi
+CF_DOMAIN="$(cd "$TF_DIR" && terraform output -raw cloudfront_domain 2>/dev/null || true)"
 if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]]; then
   DIST_ID="$(aws cloudfront list-distributions \
     --query "DistributionList.Items[?contains(Aliases.Items, 'engress.io')].Id | [0]" --output text 2>/dev/null || true)"
 fi
+if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]] && [[ -n "$CF_DOMAIN" && "$CF_DOMAIN" != "None" ]]; then
+  DIST_ID="$(aws cloudfront list-distributions \
+    --query "DistributionList.Items[?DomainName=='${CF_DOMAIN}'].Id | [0]" --output text 2>/dev/null || true)"
+fi
 if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]]; then
-  echo "ERROR: CloudFront distribution ID not found — set ENGRESS_CLOUDFRONT_DISTRIBUTION_ID" >&2
+  echo "ERROR: CloudFront distribution not found — set ENGRESS_CLOUDFRONT_DISTRIBUTION_ID or SSM engress-cloudfront-distribution-id" >&2
   exit 1
 fi
+echo "==> CloudFront distribution: ${DIST_ID}"
 
 PK="${VITE_CLERK_PUBLISHABLE_KEY:-}"
 CLERK_ORG_ID="${VITE_CLERK_ORG_ID:-}"
