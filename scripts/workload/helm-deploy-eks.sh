@@ -92,6 +92,8 @@ if [[ "$DEPLOY_CORE" -eq 1 ]]; then
     --set "image.tag=${IMAGE_TAG}" \
     --set "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=${CORE_IRSA}" \
     --set "ingress.hosts[0].host=${CORE_HOST}" \
+    --set "ingress.hosts[0].paths[0].path=/" \
+    --set "ingress.hosts[0].paths[0].pathType=Prefix" \
     --wait --timeout 5m
 fi
 
@@ -102,6 +104,8 @@ if [[ "$DEPLOY_EDGE" -eq 1 ]]; then
     --set "image.tag=${IMAGE_TAG}" \
     --set "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=${EDGE_IRSA}" \
     --set "ingress.hosts[0].host=${EDGE_HOST}" \
+    --set "ingress.hosts[0].paths[0].path=/" \
+    --set "ingress.hosts[0].paths[0].pathType=Prefix" \
     --set "config.controlOriginHost=${EDGE_HOST}" \
     --wait --timeout 5m
 fi
