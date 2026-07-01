@@ -1,0 +1,12 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths: ['terraform/**', 'scripts/guards/**']
+jobs:
+  plan-guard-selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: test -x ./scripts/guards/plan-guard.sh
