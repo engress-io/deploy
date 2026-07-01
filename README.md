@@ -44,4 +44,4 @@ deploy/
 
 ## Design
 
-See `specs/2026-06-30-p06-deploy-submodule-design.md` in the superproject.
+See `specs/2026-06-30-p08-deploy-submodule-design.md` in the superproject.
