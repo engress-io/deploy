@@ -21,6 +21,11 @@ CORE_IRSA="${ENGRESS_DEPLOY_CORE_IRSA_ARN:-}"
 EDGE_HOST="${ENGRESS_DEPLOY_EDGE_HOST:-edge-origin.engress.io}"
 CORE_HOST="${ENGRESS_DEPLOY_CORE_HOST:-core-origin.engress.io}"
 
+CHARTS_ROOT="${ENGRESS_CHARTS_ROOT:-${ENGRESS_DEPLOY_ROOT:-}/helm}"
+if [[ -z "$CHARTS_ROOT" || ! -d "$CHARTS_ROOT" ]]; then
+  CHARTS_ROOT="${ENGRESS_WORKSPACE_ROOT:-$(engress_workspace_root)}/charts"
+fi
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --region)
@@ -58,10 +63,6 @@ done
 
 IMAGE_TAG="${IMAGE_TAG:-$(git -C "$ENGRESS_CORE_ROOT" rev-parse --short HEAD 2>/dev/null || echo latest)}"
 NAMESPACE="${NAMESPACE:-engress}"
-CHARTS_ROOT="${ENGRESS_CHARTS_ROOT:-${ENGRESS_DEPLOY_ROOT:-}/helm}"
-if [[ -z "$CHARTS_ROOT" || ! -d "$CHARTS_ROOT" ]]; then
-  CHARTS_ROOT="${ENGRESS_WORKSPACE_ROOT:-$(engress_workspace_root)}/charts"
-fi
 
 # Load west-specific SSM when deploying to us-west-1
 if [[ "$AWS_REGION" == "us-west-1" ]]; then
