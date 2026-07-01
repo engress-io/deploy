@@ -105,7 +105,13 @@ AWS_PROFILE=ghostweasel-flux ./scripts/agent/clerk-auth.sh --staging configure
 ./scripts/agent/dispatch-ops.sh clerk-configure-staging
 ```
 
-This whitelists redirect URLs for `https://staging.engress.io/*` and disables the org gate on sign-up (same beta posture as prod).
+This whitelists redirect URLs for `https://staging.engress.io/*`, registers the satellite domain, and **locks down access to employees and admins only**:
+
+- Clerk **allowlist** enabled for `*.ghostweasel.net` and `*.engress.io` (GP cannot sign in or sign up)
+- SPA built with `VITE_STAGING_STAFF_ONLY=true` (staff gate in the UI)
+- Core API rejects non-staff Clerk users when `ENGRESS_ENV=staging`
+
+Staff = platform admin, `@ghostweasel.net` / `@engress.io` email, or member of the Engress Clerk org (`ENGRESS_CLERK_ORG_ID`).
 
 ### Webhook (optional)
 

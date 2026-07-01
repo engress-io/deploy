@@ -46,6 +46,9 @@ config:
   awsRegion: us-east-2
   logLevel: debug
   environment: staging
+  staffOnly: true
+  staffEmailDomains: "ghostweasel.net,engress.io"
+  staffOrgId: "org_3FN4VwPcUUsNUKi0yf6cdFLhG7J"
 
 sessionKeySecret: engress-core-secrets-staging
 

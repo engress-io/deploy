@@ -36,6 +36,8 @@ if [[ "${ENGRESS_ENV:-prod}" == "staging" ]]; then
   export VITE_CLERK_DOMAIN="${VITE_CLERK_DOMAIN:-staging.engress.io}"
   export VITE_CLERK_SIGN_IN_URL="${VITE_CLERK_SIGN_IN_URL:-https://staging.engress.io/sign-in}"
   export VITE_CLERK_SIGN_UP_URL="${VITE_CLERK_SIGN_UP_URL:-https://staging.engress.io/sign-up}"
+  export VITE_STAGING_STAFF_ONLY="${VITE_STAGING_STAFF_ONLY:-true}"
+  export VITE_CLERK_SIGN_UP_ENABLED="${VITE_CLERK_SIGN_UP_ENABLED:-false}"
 fi
 npm run build
 
