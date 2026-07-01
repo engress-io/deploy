@@ -105,7 +105,9 @@ resource "aws_iam_role_policy" "github_deploy" {
         Action = [
           "cloudfront:CreateInvalidation",
           "cloudfront:GetInvalidation",
-          "cloudfront:ListInvalidations"
+          "cloudfront:ListInvalidations",
+          "cloudfront:ListDistributions",
+          "cloudfront:GetDistribution",
         ]
         Resource = "*"
       },

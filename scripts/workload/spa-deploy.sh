@@ -28,22 +28,60 @@ if [[ -z "$BUCKET" ]]; then
   exit 1
 fi
 
+cloudfront_id_from_tfstate() {
+  local state_bucket="engress-terraform-state-${ACCOUNT_ID}"
+  local state_key="${ENGRESS_TFSTATE_KEY:-engress/core/terraform.tfstate}"
+  local tmp
+  tmp="$(mktemp)"
+  if ! aws s3 cp "s3://${state_bucket}/${state_key}" "$tmp" --region us-east-2 >/dev/null 2>&1; then
+    rm -f "$tmp"
+    return 1
+  fi
+  python3 - "$tmp" <<'PY'
+import json, sys
+with open(sys.argv[1]) as f:
+    state = json.load(f)
+for res in state.get("resources", []):
+    if res.get("type") != "aws_cloudfront_distribution" or res.get("name") != "frontend":
+        continue
+    for inst in res.get("instances", []):
+        attrs = inst.get("attributes", {})
+        cid = attrs.get("id")
+        if not cid:
+            continue
+        aliases = attrs.get("aliases") or []
+        if isinstance(aliases, list) and "engress.io" in aliases:
+            print(cid)
+            raise SystemExit(0)
+        print(cid)
+        raise SystemExit(0)
+raise SystemExit(1)
+PY
+  rm -f "$tmp"
+}
+
 # Resolve CloudFront distribution (E1ABUIC4DB7I86 was destroyed in Jun 2026 recovery).
 DIST_ID="${ENGRESS_CLOUDFRONT_DISTRIBUTION_ID:-}"
+if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]]; then
+  DIST_ID="$(aws ssm get-parameter --name engress-deploy-cloudfront-distribution-id --region "$REGION" --query 'Parameter.Value' --output text 2>/dev/null || true)"
+fi
 if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]]; then
   DIST_ID="$(aws ssm get-parameter --name engress-cloudfront-distribution-id --region "$REGION" --query 'Parameter.Value' --output text 2>/dev/null || true)"
 fi
 CF_DOMAIN="$(cd "$TF_DIR" && terraform output -raw cloudfront_domain 2>/dev/null || true)"
 if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]]; then
   DIST_ID="$(aws cloudfront list-distributions \
-    --query "DistributionList.Items[?contains(Aliases.Items, 'engress.io')].Id | [0]" --output text 2>/dev/null || true)"
+    --query "DistributionList.Items[?Aliases.Items && contains(Aliases.Items, 'engress.io')].Id | [0]" --output text 2>/dev/null || true)"
 fi
 if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]] && [[ -n "$CF_DOMAIN" && "$CF_DOMAIN" != "None" ]]; then
   DIST_ID="$(aws cloudfront list-distributions \
     --query "DistributionList.Items[?DomainName=='${CF_DOMAIN}'].Id | [0]" --output text 2>/dev/null || true)"
 fi
 if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]]; then
-  echo "ERROR: CloudFront distribution not found — set ENGRESS_CLOUDFRONT_DISTRIBUTION_ID or SSM engress-cloudfront-distribution-id" >&2
+  DIST_ID="$(cloudfront_id_from_tfstate || true)"
+fi
+if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]]; then
+  echo "ERROR: CloudFront distribution not found — set ENGRESS_CLOUDFRONT_DISTRIBUTION_ID or SSM engress-deploy-cloudfront-distribution-id" >&2
   exit 1
 fi
 echo "==> CloudFront distribution: ${DIST_ID}"
