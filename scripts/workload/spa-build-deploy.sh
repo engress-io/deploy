@@ -31,6 +31,12 @@ else
 fi
 export VITE_CLERK_PUBLISHABLE_KEY="$PK"
 export VITE_CLERK_SIGN_UP_ENABLED="${VITE_CLERK_SIGN_UP_ENABLED:-true}"
+if [[ "${ENGRESS_ENV:-prod}" == "staging" ]]; then
+  export VITE_CLERK_IS_SATELLITE="${VITE_CLERK_IS_SATELLITE:-true}"
+  export VITE_CLERK_DOMAIN="${VITE_CLERK_DOMAIN:-staging.engress.io}"
+  export VITE_CLERK_SIGN_IN_URL="${VITE_CLERK_SIGN_IN_URL:-https://staging.engress.io/sign-in}"
+  export VITE_CLERK_SIGN_UP_URL="${VITE_CLERK_SIGN_UP_URL:-https://staging.engress.io/sign-up}"
+fi
 npm run build
 
 echo "==> S3 sync + CloudFront invalidation"

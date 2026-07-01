@@ -17,7 +17,12 @@ REGION="${AWS_REGION:-$(cd "$TF_DIR" && terraform output -raw aws_region 2>/dev/
 ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text 2>/dev/null || echo 327796148992)"
 BUCKET="${ENGRESS_SPA_BUCKET:-}"
 if [[ -z "$BUCKET" ]]; then
-  BUCKET="$(cd "$TF_DIR" && terraform output -raw frontend_bucket 2>/dev/null || true)"
+  if [[ "${ENGRESS_ENV:-prod}" == "staging" ]]; then
+    BUCKET="$(aws ssm get-parameter --name engress-staging-spa-bucket --region "$REGION" --query 'Parameter.Value' --output text 2>/dev/null || true)"
+    BUCKET="${BUCKET:-engress-staging-spa-${ACCOUNT_ID}}"
+  else
+    BUCKET="$(cd "$TF_DIR" && terraform output -raw frontend_bucket 2>/dev/null || true)"
+  fi
 fi
 if [[ -z "$BUCKET" || "$BUCKET" == *error* || "$BUCKET" == *Terraform* ]]; then
   BUCKET=""
@@ -50,18 +55,25 @@ for res in state.get("resources", []):
         if not cid:
             continue
         aliases = attrs.get("aliases") or []
-        if isinstance(aliases, list) and "engress.io" in aliases:
+        if isinstance(aliases, list):
+          if "staging.engress.io" in aliases:
             print(cid)
             raise SystemExit(0)
-        print(cid)
-        raise SystemExit(0)
+          if "engress.io" in aliases:
+            print(cid)
+            raise SystemExit(0)
 raise SystemExit(1)
 PY
   rm -f "$tmp"
 }
 
-# Resolve CloudFront distribution (E1ABUIC4DB7I86 was destroyed in Jun 2026 recovery).
+# Resolve CloudFront distribution
 DIST_ID="${ENGRESS_CLOUDFRONT_DISTRIBUTION_ID:-}"
+if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]]; then
+  if [[ "${ENGRESS_ENV:-prod}" == "staging" ]]; then
+    DIST_ID="$(aws ssm get-parameter --name engress-staging-deploy-cloudfront-distribution-id --region "$REGION" --query 'Parameter.Value' --output text 2>/dev/null || true)"
+  fi
+fi
 if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]]; then
   DIST_ID="$(aws ssm get-parameter --name engress-deploy-cloudfront-distribution-id --region "$REGION" --query 'Parameter.Value' --output text 2>/dev/null || true)"
 fi
@@ -70,15 +82,19 @@ if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]]; then
 fi
 CF_DOMAIN="$(cd "$TF_DIR" && terraform output -raw cloudfront_domain 2>/dev/null || true)"
 if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]]; then
+  local_alias="engress.io"
+  [[ "${ENGRESS_ENV:-prod}" == "staging" ]] && local_alias="staging.engress.io"
   DIST_ID="$(aws cloudfront list-distributions \
-    --query "DistributionList.Items[?Aliases.Items && contains(Aliases.Items, 'engress.io')].Id | [0]" --output text 2>/dev/null || true)"
+    --query "DistributionList.Items[?Aliases.Items && contains(Aliases.Items, '${local_alias}')].Id | [0]" --output text 2>/dev/null || true)"
 fi
 if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]] && [[ -n "$CF_DOMAIN" && "$CF_DOMAIN" != "None" ]]; then
   DIST_ID="$(aws cloudfront list-distributions \
     --query "DistributionList.Items[?DomainName=='${CF_DOMAIN}'].Id | [0]" --output text 2>/dev/null || true)"
 fi
 if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]]; then
-  DIST_ID="$(cloudfront_id_from_tfstate || true)"
+  state_key="${ENGRESS_TFSTATE_KEY:-engress/core/terraform.tfstate}"
+  [[ "${ENGRESS_ENV:-prod}" == "staging" ]] && state_key="${ENGRESS_TFSTATE_KEY:-engress/deploy/staging/terraform.tfstate}"
+  ENGRESS_TFSTATE_KEY="$state_key" DIST_ID="$(cloudfront_id_from_tfstate || true)"
 fi
 if [[ -z "$DIST_ID" || "$DIST_ID" == "None" ]]; then
   echo "ERROR: CloudFront distribution not found — set ENGRESS_CLOUDFRONT_DISTRIBUTION_ID or SSM engress-deploy-cloudfront-distribution-id" >&2
@@ -122,4 +138,6 @@ echo "==> invalidating CloudFront ${DIST_ID}"
 INV_ID="$(aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*" --query 'Invalidation.Id' --output text)"
 echo "    invalidation: ${INV_ID}"
 
-echo "==> done — open https://engress.io"
+done_host="engress.io"
+[[ "${ENGRESS_ENV:-prod}" == "staging" ]] && done_host="staging.engress.io"
+echo "==> done — open https://${done_host}"
