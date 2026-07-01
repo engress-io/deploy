@@ -69,3 +69,16 @@ Cloud agents and operators must:
 | `deploy-k8s.yml` | EKS component deploys on push (change-detected) |
 | `ci.yml` | EC2 component deploys on push (change-detected) |
 | `ops.yml` | Manual/dispatched operator actions |
+
+## Verification (2026-06-30)
+
+| Check | Result |
+|-------|--------|
+| `bash -n deploy/scripts/workload/build-push-ecr.sh` | pass |
+| `bash -n scripts/deploy/scripts/build-push-ecr.sh` | pass |
+| `bash -n deploy/agents/dispatch-ops.sh` | pass |
+| `deploy-k8s.yml` path triggers exclude `agent/**`, `scripts/**` | pass |
+| `ci.yml` path triggers exclude docs-only paths | pass |
+| `ops.yml` helm-deploy uses `helm-deploy-eks.sh` (not inline charts) | pass |
+| `fix-lbs` no longer auto-redeploys charts | pass |
+| `helm-deploy-core` / `helm-deploy-edge` in dispatch + ops | pass |
