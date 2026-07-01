@@ -27,6 +27,7 @@ Workloads (prefer component-scoped actions):
   helm-deploy-west    Helm upgrade edge only (west)
   helm-deploy-all     Full east + west (manual reconcile only)
   spa-deploy          Build SPA + S3 sync + CloudFront invalidation only
+  docs-deploy         Build Docusaurus + S3 sync under docs/ + CF invalidation
   install-addons / install-addons-west
   p05-prereqs-check / smoke-test / clerk-refresh
   dns-audit / dns-cutover-ga / dns-cutover-ga-apply / p03-rollout
@@ -41,7 +42,7 @@ VALID_ACTIONS=(
   plan-eks apply-eks plan-eks-west apply-eks-west plan-ga apply-ga
   install-addons install-addons-west p05-prereqs-check
   helm-deploy helm-deploy-core helm-deploy-edge helm-deploy-west helm-deploy-all
-  spa-deploy
+  spa-deploy docs-deploy
   kubectl-status kubectl-status-west core-rollback dns-audit dns-cutover-ga dns-cutover-ga-apply
   p03-rollout fix-lbs fix-lbs-west deploy-target smoke-test decommission-ec2 recover-frontend clerk-refresh
 )

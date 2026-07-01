@@ -103,7 +103,11 @@ function handler(event) {
     return request;
   }
   if (uri.indexOf("/docs/") === 0 && uri.indexOf(".", 6) === -1) {
-    request.uri = uri + ".html";
+    if (uri.endsWith("/")) {
+      request.uri = uri + "index.html";
+    } else {
+      request.uri = uri + "/index.html";
+    }
   }
   return request;
 }
