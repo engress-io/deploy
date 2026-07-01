@@ -84,6 +84,11 @@ aws eks update-kubeconfig --name "$ENGRESS_DEPLOY_EKS_CLUSTER" --region "$AWS_RE
 
 kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
 
+if helm status engress-core -n "$NAMESPACE" 2>/dev/null | grep -qi pending; then
+  echo "WARN: clearing pending engress-core helm release"
+  helm rollback engress-core -n "$NAMESPACE" || true
+fi
+
 if [[ "$DEPLOY_CORE" -eq 1 ]]; then
   : "${CORE_IRSA:?missing core IRSA ARN in SSM}"
   helm upgrade --install engress-core "$CHARTS_ROOT/engress-core" \
