@@ -18,12 +18,14 @@ enable_global_accelerator = false
 decommission_ec2          = true
 deploy_target             = "eks"
 acme_production           = false
-eks_system_node_instance_type = "t4g.small"
-eks_system_node_min_size      = 1
-eks_system_node_desired_size  = 1
-eks_system_node_max_size      = 2
-eks_workload_node_min_size    = 1
+# Staging cost target: 2x t4g.small (~$24/mo on-demand). Do not use t4g.medium here.
+eks_system_node_instance_type  = "t4g.small"
+eks_system_node_min_size       = 1
+eks_system_node_desired_size   = 1
+eks_system_node_max_size       = 2
+eks_workload_node_instance_type = "t4g.small"
+eks_workload_node_min_size     = 1
 eks_workload_node_desired_size = 1
-eks_workload_node_max_size    = 2
+eks_workload_node_max_size     = 2
 spa_bucket_name               = "engress-staging-spa-327796148992"
 # elastic_ip_address omitted — staging uses EKS NLB only (no legacy EC2 EIP)

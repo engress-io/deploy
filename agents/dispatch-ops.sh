@@ -31,7 +31,7 @@ Workloads (prefer component-scoped actions):
   spa-deploy          Build SPA + S3 sync + CloudFront invalidation only
   docs-deploy         Build Docusaurus + S3 sync under docs/ + CF invalidation
   install-addons / install-addons-west
-  p05-prereqs-check / smoke-test / clerk-refresh
+  p05-prereqs-check / smoke-test / clerk-refresh / clerk-configure-staging
   dns-audit / dns-cutover-ga / dns-cutover-ga-apply / p03-rollout
   fix-lbs / fix-lbs-west / deploy-target value=eks
 
@@ -46,7 +46,7 @@ VALID_ACTIONS=(
   helm-deploy helm-deploy-core helm-deploy-edge helm-deploy-east helm-deploy-staging helm-deploy-west helm-deploy-all
   spa-deploy docs-deploy
   kubectl-status kubectl-status-west core-rollback dns-audit dns-cutover-ga dns-cutover-ga-apply
-  p03-rollout fix-lbs fix-lbs-west deploy-target smoke-test decommission-ec2 recover-frontend clerk-refresh
+  p03-rollout fix-lbs fix-lbs-west deploy-target smoke-test decommission-ec2 recover-frontend clerk-refresh clerk-configure-staging
 )
 
 ACTION="${1:-}"
@@ -111,6 +111,9 @@ if [[ -z "${GITHUB_ACTIONS:-}${CI:-}" ]] && command -v aws >/dev/null 2>&1 && aw
       ;;
     clerk-refresh)
       exec "$SCRIPT_DIR/clerk-auth.sh" refresh
+      ;;
+    clerk-configure-staging)
+      exec env ENGRESS_ENV=staging "$SCRIPT_DIR/clerk-auth.sh" --staging configure
       ;;
     helm-deploy-east|helm-deploy|helm-deploy-core)
       exec "$DEPLOY_ROOT/scripts/workload/helm-deploy-eks-east.sh" ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}

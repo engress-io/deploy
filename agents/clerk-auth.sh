@@ -1,53 +1,87 @@
 #!/usr/bin/env bash
-# Clerk auth CLI — verify, configure instance, sync SSM, refresh production login.
+# Clerk auth CLI — verify, configure instance, sync SSM, refresh login (prod + staging).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck source=deploy/lib/clerk.sh
-source "$ROOT/deploy/lib/clerk.sh"
-# Normalize Cursor secret aliases before any command.
-# shellcheck source=agent/cloud-env-bootstrap.sh
-source "$ROOT/agent/cloud-env-bootstrap.sh" 2>/dev/null || true
+# shellcheck source=scripts/lib/clerk.sh
+source "$ROOT/scripts/lib/clerk.sh"
+# Superproject shim (optional): scripts/agent/cloud-env-bootstrap.sh
+SUPERPROJECT_ROOT="$(cd "$ROOT/.." && pwd)"
+# shellcheck source=/dev/null
+source "$SUPERPROJECT_ROOT/scripts/agent/cloud-env-bootstrap.sh" 2>/dev/null || true
 export CLOUD_ENV_CHECK=0
 
 CMD="${1:-}"
 REGION="${AWS_REGION:-us-east-2}"
+STAGING=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --staging) STAGING=1; ENGRESS_ENV=staging; export ENGRESS_ENV; shift ;;
+    -h|--help|help) CMD=help; shift ;;
+    *) break ;;
+  esac
+done
+CMD="${1:-${CMD:-}}"
+clerk_resolve_env
 
 usage() {
   cat <<EOF
-Usage: clerk-auth.sh <command>
+Usage: clerk-auth.sh [--staging] <command>
 
 Commands:
-  verify              Check keys match Engress Clerk app + org ${ENGRESS_CLERK_ORG_ID}
+  verify              Check keys match Engress Clerk app (+ org for prod)
   diagnose            List orgs + HTTP status (debug org id mismatch)
-  configure           Ensure redirect URLs + beta org settings (no AWS)
+  configure           Ensure redirect URLs + beta org settings (API only)
   sync-ssm            Write env Clerk keys → SSM (needs aws CLI)
   build-spa           npm build + S3 sync + CF invalidation (needs aws CLI)
   refresh             configure + sync-ssm + build-spa + restart core (full login fix)
   list-redirect-urls  Show whitelisted redirect URLs
   get-domains         Show Clerk domains / frontend API host
 
-Credentials (Cursor cloud agent):
-  CLERK_SECRET_KEY, CLERK_PUBLISHABLE_KEY, CLERK_WEBHOOK_SECRET (optional)
+Staging (--staging or ENGRESS_ENV=staging):
+  Origin ${ENGRESS_APP_ORIGIN:-https://staging.engress.io}; SSM engress-staging-clerk-*
+  Dev instances use *.accounts.dev for sign-in — custom Domains in Dashboard not required.
 
-Then restart engress-core on EKS after sync-ssm:
-  kubectl rollout restart deployment/engress-core -n engress
+Credentials (Cursor cloud agent):
+  Prod: CLERK_SECRET_KEY, CLERK_PUBLISHABLE_KEY
+  Staging: STAGING_CLERK_* or SSM engress-staging-clerk-*
 
 Or dispatch: ./scripts/agent/dispatch-ops.sh clerk-refresh
+             ./scripts/agent/dispatch-ops.sh clerk-configure-staging
 EOF
 }
 
 clerk_require_secret() {
   if ! clerk_load_credentials "$REGION"; then
     echo "ERROR: Clerk credentials missing." >&2
-    echo "  Cursor: CLERK_SECRET_KEY + CLERK_PUBLISHABLE_KEY" >&2
-    echo "  GitHub: add same names to repo secrets for dispatch-ops clerk-refresh" >&2
+    if [[ "${ENGRESS_ENV:-prod}" == "staging" ]]; then
+      echo "  SSM: engress-staging-clerk-secret-key + engress-staging-clerk-publishable-key" >&2
+      echo "  Or: STAGING_CLERK_SECRET_KEY + STAGING_CLERK_PUBLISHABLE_KEY" >&2
+    else
+      echo "  Cursor: CLERK_SECRET_KEY + CLERK_PUBLISHABLE_KEY" >&2
+      echo "  GitHub: add same names to repo secrets for dispatch-ops clerk-refresh" >&2
+    fi
     exit 1
   fi
 }
 
 cmd_verify() {
   clerk_require_secret
+  if [[ "${ENGRESS_ENV:-prod}" == "staging" ]]; then
+    local pk_host inst
+    pk_host="$(clerk_pk_frontend_host "$CLERK_PUBLISHABLE_KEY")"
+    echo "=== Clerk verify (staging) ==="
+    echo "Publishable host: ${pk_host:-unknown}"
+    echo "App origin:       ${ENGRESS_APP_ORIGIN}"
+    if ! inst="$(clerk_verify_instance)"; then
+      echo "[FAIL] secret key invalid or Clerk API unreachable"
+      exit 1
+    fi
+    echo "[ok] instance: $inst"
+    echo "[ok] staging keys valid (dev sign-in uses ${pk_host:-accounts.dev}, not custom Domains)"
+    return 0
+  fi
   local pk_host clerk_host org_name
   pk_host="$(clerk_pk_frontend_host "$CLERK_PUBLISHABLE_KEY")"
   clerk_host="$(clerk_primary_domain_host || true)"
@@ -76,7 +110,11 @@ cmd_verify() {
 
 cmd_configure() {
   clerk_require_secret
-  clerk_verify_engress_org >/dev/null || exit 1
+  if [[ "${ENGRESS_ENV:-prod}" != "staging" ]]; then
+    clerk_verify_engress_org >/dev/null || exit 1
+  else
+    clerk_verify_instance >/dev/null || exit 1
+  fi
   echo "==> redirect URLs for ${ENGRESS_APP_ORIGIN}"
   clerk_ensure_redirect_urls "$ENGRESS_APP_ORIGIN"
   echo "==> beta auth (no org gate on sign-up)"
@@ -90,7 +128,7 @@ cmd_sync_ssm() {
 }
 
 cmd_build_spa() {
-  exec bash "$ROOT/deploy/scripts/spa-build-deploy.sh"
+  exec bash "$ROOT/scripts/workload/spa-build-deploy.sh"
 }
 
 cmd_refresh() {
@@ -103,7 +141,7 @@ cmd_refresh() {
   if command -v aws >/dev/null; then
     echo "==> 3/4 sync SSM + rebuild SPA"
     clerk_sync_ssm_from_env "$REGION"
-    bash "$ROOT/deploy/scripts/spa-build-deploy.sh"
+    bash "$ROOT/scripts/workload/spa-build-deploy.sh"
     echo "==> 4/4 restart engress-core (if kubectl configured)"
     if command -v kubectl >/dev/null && aws eks update-kubeconfig --name engress-east --region us-east-2 >/dev/null 2>&1; then
       kubectl rollout restart deployment/engress-core -n engress
