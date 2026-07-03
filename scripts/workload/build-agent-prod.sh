@@ -26,7 +26,7 @@ VERSION="${ENGRESS_AGENT_PROD_VERSION:-${IMAGE_TAG:-${ENGRESS_IMAGE_TAG:-}}}"
 if [[ -z "$VERSION" ]]; then
   VERSION="$(git -C "$ENGRESS_CORE_ROOT" rev-parse --short HEAD 2>/dev/null || date +%Y%m%d)"
 fi
-SDK_VERSION=$(grep 'github.com/engress-io/sdk' "$AGENT_ROOT/go.mod" | awk '{print $2}' | sed 's/v//')
+SDK_VERSION=$(grep 'github.com/engress-io/sdk' "$AGENT_ROOT/go.mod" | grep -v '^replace' | awk '{print $2}' | sed 's/^v//')
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -36,7 +36,7 @@ base_domain: "${BASE_DOMAIN}"
 domain_suffix: ".edge.${BASE_DOMAIN}"
 EOF
 
-LDFLAGS="-s -w -X github.com/engress-io/agent/internal/version.Version=${VERSION} -X github.com/engress-io/agent/internal/version.SDKVersion=${SDK_VERSION}"
+LDFLAGS="-s -w -X 'github.com/engress-io/agent/internal/version.Version=${VERSION}' -X 'github.com/engress-io/agent/internal/version.SDKVersion=${SDK_VERSION}'"
 
 mkdir -p "$TMP/dist"
 cd "$AGENT_ROOT"
