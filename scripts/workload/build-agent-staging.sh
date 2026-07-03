@@ -53,4 +53,18 @@ done
 
 echo "==> upload s3://${BUCKET}/${PREFIX}/"
 aws s3 sync "$TMP/dist/" "s3://${BUCKET}/${PREFIX}/" --delete --region "$REGION"
+
+CORE_ROOT="${ENGRESS_CORE_ROOT:-$ENGRESS_WORKSPACE_ROOT/core}"
+if [[ -f "$CORE_ROOT/packaging/install.sh" ]]; then
+  sed "s|https://engress.io/downloads/latest|https://staging.engress.io/downloads/staging/latest|g" \
+    "$CORE_ROOT/packaging/install.sh" > "$TMP/dist/install.sh"
+  chmod +x "$TMP/dist/install.sh"
+  aws s3 cp "$TMP/dist/install.sh" "s3://${BUCKET}/${PREFIX}/install.sh" --region "$REGION"
+fi
+if [[ -f "$CORE_ROOT/packaging/install.ps1" ]]; then
+  sed "s|https://engress.io/downloads/latest|https://staging.engress.io/downloads/staging/latest|g" \
+    "$CORE_ROOT/packaging/install.ps1" > "$TMP/dist/install.ps1"
+  aws s3 cp "$TMP/dist/install.ps1" "s3://${BUCKET}/${PREFIX}/install.ps1" --region "$REGION"
+fi
+
 echo "Staging agent binaries published (version=${VERSION})"

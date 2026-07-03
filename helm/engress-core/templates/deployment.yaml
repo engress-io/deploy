@@ -41,6 +41,18 @@ spec:
             - name: ENGRESS_ENV
               value: {{ .Values.config.environment | quote }}
             {{- end }}
+            {{- if .Values.config.staffOnly }}
+            - name: ENGRESS_STAFF_ONLY
+              value: "true"
+            {{- end }}
+            {{- if .Values.config.staffEmailDomains }}
+            - name: ENGRESS_STAFF_EMAIL_DOMAINS
+              value: {{ .Values.config.staffEmailDomains | quote }}
+            {{- end }}
+            {{- if .Values.config.staffOrgId }}
+            - name: ENGRESS_STAFF_ORG_ID
+              value: {{ .Values.config.staffOrgId | quote }}
+            {{- end }}
             {{- if .Values.sessionKeySecret }}
             - name: FLUX_SESSION_KEY
               valueFrom:

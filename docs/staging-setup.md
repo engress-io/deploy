@@ -105,7 +105,13 @@ AWS_PROFILE=ghostweasel-flux ./scripts/agent/clerk-auth.sh --staging configure
 ./scripts/agent/dispatch-ops.sh clerk-configure-staging
 ```
 
-This whitelists redirect URLs for `https://staging.engress.io/*` and disables the org gate on sign-up (same beta posture as prod).
+This whitelists redirect URLs for `https://staging.engress.io/*`, registers the satellite domain, and **locks down access to employees and admins only**:
+
+- Clerk **allowlist** enabled for `*.ghostweasel.net` and `*.engress.io` (GP cannot sign in or sign up)
+- SPA built with `VITE_STAGING_STAFF_ONLY=true` (staff gate in the UI)
+- Core API rejects non-staff Clerk users when `ENGRESS_ENV=staging`
+
+Staff = platform admin, `@ghostweasel.net` / `@engress.io` email, or member of the Engress Clerk org (`ENGRESS_CLERK_ORG_ID`).
 
 ### Webhook (optional)
 
@@ -306,16 +312,21 @@ Repo: **engress-io/engress** → Settings → Environments
 
 ```bash
 export ENGRESS_ENV=staging
-./deploy/agents/dispatch-ops.sh helm-deploy-staging
-
-# Or manually:
+export IMAGE_TAG="$(git -C core rev-parse --short HEAD)"
 ./deploy/scripts/workload/helm-deploy-eks-staging.sh
 
-# Smoke + P07B v1 validation:
+# P07B validation (version check + binary checks):
 ./deploy/scripts/smoke/validate.sh
 
-curl -sf https://staging.engress.io/api/healthz
+# Public API must report the same IMAGE_TAG:
+curl -sf "https://staging.engress.io/api/healthz" | grep "\"version\":\"${IMAGE_TAG}\""
 ```
+
+Validation fails if:
+
+- Deployment image tags in EKS do not match `IMAGE_TAG`
+- Public `/api/healthz` version does not match (CloudFront/origin routing issue)
+- `validate-binary.sh` cannot reach core-origin or edge mTLS port
 
 ### Staging agent binaries
 
@@ -323,6 +334,12 @@ After edge deploy, CI publishes to `staging.engress.io/downloads/staging/latest/
 
 ```bash
 ./deploy/scripts/workload/build-agent-staging.sh
+```
+
+Bootstrap your staff account (after signing up on staging Clerk):
+
+```bash
+ENGRESS_ENV=staging ./deploy/scripts/cluster/staging-bootstrap-admin.sh dave@engress.io
 ```
 
 Test agent:
@@ -342,7 +359,7 @@ chmod +x /tmp/engress-staging
 3. **Actions → Deploy to production** — should appear; **wait for your approval**
 4. Approve → same image SHA promotes to prod east + west
 
-Emergency prod-only path: **Deploy to EKS (manual prod reconcile)** workflow.
+Emergency prod-only path: **Deploy to EKS (manual prod reconcile)** — requires validated `image_tag` and production environment approval. Does not rebuild images.
 
 ---
 
