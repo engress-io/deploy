@@ -29,6 +29,11 @@ spec:
               name: https
             - containerPort: 4433
               name: tunnel
+            - containerPort: 4444
+              name: tcp-mux
+            - containerPort: 4445
+              name: udp-mux
+              protocol: UDP
           env:
             - name: FLUX_USE_SSM
               value: "0"

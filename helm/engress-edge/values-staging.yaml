@@ -43,6 +43,14 @@ service:
         port: 4433
         targetPort: 4433
         protocol: TCP
+      - name: tcp-mux
+        port: 4444
+        targetPort: 4444
+        protocol: TCP
+      - name: udp-mux
+        port: 4445
+        targetPort: 4445
+        protocol: UDP
 
 ingress:
   enabled: true

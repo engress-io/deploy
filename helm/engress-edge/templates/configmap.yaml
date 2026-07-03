@@ -9,6 +9,8 @@ data:
     http_addr: ":80"
     https_addr: ":443"
     tunnel_addr: ":4433"
+    tcp_mux_addr: ":4444"
+    udp_mux_addr: ":4445"
     domain_suffix: {{ .Values.config.domainSuffix | quote }}
     base_domain: {{ .Values.config.baseDomain | quote }}
     control_api_url: {{ .Values.config.controlApiUrl | quote }}
