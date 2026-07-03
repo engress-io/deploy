@@ -118,13 +118,13 @@ aws eks update-kubeconfig --name "$ENGRESS_DEPLOY_EKS_CLUSTER" --region "$AWS_RE
 
 kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
 
-if helm status engress-core -n "$NAMESPACE" 2>/dev/null | grep -qi pending; then
-  echo "WARN: clearing pending engress-core helm release"
-  helm rollback engress-core -n "$NAMESPACE" || true
-fi
+UNLOCK_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/helm-release-unlock.sh"
+HELM_UPGRADE_EXTRA_ARGS="${HELM_UPGRADE_EXTRA_ARGS:---wait --timeout 5m}"
 
 if [[ "$DEPLOY_CORE" -eq 1 ]]; then
   : "${CORE_IRSA:?missing core IRSA ARN in SSM}"
+  "$UNLOCK_SCRIPT" engress-core "$NAMESPACE"
+  # shellcheck disable=SC2086
   helm upgrade --install engress-core "$CHARTS_ROOT/engress-core" \
     --namespace "$NAMESPACE" \
     ${CORE_VALUES[@]+"${CORE_VALUES[@]}"} \
@@ -133,10 +133,12 @@ if [[ "$DEPLOY_CORE" -eq 1 ]]; then
     --set "ingress.hosts[0].host=${CORE_HOST}" \
     --set "ingress.hosts[0].paths[0].path=/" \
     --set "ingress.hosts[0].paths[0].pathType=Prefix" \
-    --wait --timeout 5m
+    $HELM_UPGRADE_EXTRA_ARGS
 fi
 
 if [[ "$DEPLOY_EDGE" -eq 1 ]]; then
+  "$UNLOCK_SCRIPT" engress-edge "$NAMESPACE"
+  # shellcheck disable=SC2086
   helm upgrade --install engress-edge "$CHARTS_ROOT/engress-edge" \
     --namespace "$NAMESPACE" \
     ${EDGE_VALUES[@]+"${EDGE_VALUES[@]}"} \
@@ -146,7 +148,7 @@ if [[ "$DEPLOY_EDGE" -eq 1 ]]; then
     --set "ingress.hosts[0].paths[0].path=/" \
     --set "ingress.hosts[0].paths[0].pathType=Prefix" \
     --set "config.controlOriginHost=${EDGE_HOST}" \
-    --wait --timeout 5m
+    $HELM_UPGRADE_EXTRA_ARGS
 fi
 
 if [[ "$DEPLOY_CORE" -eq 1 ]]; then
