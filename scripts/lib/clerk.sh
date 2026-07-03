@@ -124,15 +124,20 @@ clerk_pk_accounts_portal_url() {
 }
 
 clerk_primary_accounts_portal_url() {
-  local host
-  host="$(clerk_primary_domain_host 2>/dev/null || true)"
-  [[ -n "$host" ]] || return 1
-  local slug="${host%%.clerk.accounts.dev}"
-  if [[ "$slug" != "$host" ]]; then
-    echo "https://${slug}.accounts.dev"
-    return 0
-  fi
-  echo "https://${host}"
+  local code body
+  body="$(clerk_api GET "/domains")"
+  code="${body%%$'\n'*}"
+  body="${body#*$'\n'}"
+  [[ "$code" == "200" ]] || return 1
+  python3 -c '
+import sys, json
+for d in json.load(sys.stdin).get("data", []):
+    if not d.get("is_satellite"):
+        url = (d.get("accounts_portal_url") or "").rstrip("/")
+        if url:
+            print(url)
+            break
+' <<<"$body"
 }
 
 clerk_primary_domain_host() {
@@ -230,6 +235,35 @@ clerk_configure_beta_auth() {
   body="${body#*$'\n'}"
   [[ "$code" == "200" ]] || { echo "WARN: organization_settings PATCH HTTP $code: $body" >&2; return 1; }
   python3 -c 'import sys,json; d=json.load(sys.stdin); print("  org gate enabled=", d.get("enabled"), "force=", d.get("force_organization_selection"))' <<<"$body"
+}
+
+clerk_ensure_satellite_domain() {
+  local host="${1:-${ENGRESS_APP_ORIGIN#https://}}"
+  host="${host%%/*}"
+  [[ -n "$host" ]] || return 0
+  local code body
+  body="$(clerk_api GET "/domains")"
+  code="${body%%$'\n'*}"
+  body="${body#*$'\n'}"
+  [[ "$code" == "200" ]] || { echo "WARN: list domains HTTP $code" >&2; return 0; }
+  if echo "$body" | jq -e --arg h "$host" '(.data // []) | .[]? | select(.name == $h)' >/dev/null 2>&1; then
+    echo "  [ok] satellite domain $host"
+    return 0
+  fi
+  echo "  [add] satellite domain $host"
+  body="$(clerk_api POST "/domains" "$(jq -nc --arg name "$host" '{name:$name,is_satellite:true}')")"
+  code="${body%%$'\n'*}"
+  body="${body#*$'\n'}"
+  if [[ "$code" == "200" || "$code" == "201" ]]; then
+    echo "  [ok] domain $host registered"
+    return 0
+  fi
+  if [[ "$code" == "422" ]] && grep -q 'already exists\|form_identifier_exists' <<<"$body"; then
+    echo "  [ok] domain $host (already exists)"
+    return 0
+  fi
+  echo "WARN: create domain $host failed HTTP $code: $body" >&2
+  return 0
 }
 
 clerk_verify_instance() {
