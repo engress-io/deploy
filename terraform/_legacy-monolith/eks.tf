@@ -199,8 +199,11 @@ resource "aws_iam_role_policy" "engress_edge" {
           "ssm:GetParameters"
         ]
         Resource = [
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/neon-db-connection-string",
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/engress-staging-neon-db-connection-string",
           "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/engress-tunnel-ca-*",
           "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/engress-metrics-ingest-secret",
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/engress-staging-metrics-ingest-secret",
           "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/flux-metrics-ingest-secret",
         ]
       }

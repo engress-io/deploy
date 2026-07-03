@@ -15,8 +15,8 @@ data:
     cert_cache_dir: "/data/certs"
     mtls_mode: {{ .Values.config.mtlsMode | quote }}
     db:
-      driver: sqlite
-      dsn: "/data/engress.db"
+      driver: postgres
+      dsn: ""
     acme:
       directory: "https://acme-v02.api.letsencrypt.org/directory"
       email: "ops@engress.io"

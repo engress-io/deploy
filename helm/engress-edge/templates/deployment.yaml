@@ -31,7 +31,9 @@ spec:
               name: tunnel
           env:
             - name: FLUX_USE_SSM
-              value: "0"
+              value: "1"
+            - name: AWS_REGION
+              value: {{ .Values.config.ssmRegion | default .Values.config.awsRegion | quote }}
             - name: FLUX_LOG_FORMAT
               value: json
             - name: FLUX_CONTROL_API_URL

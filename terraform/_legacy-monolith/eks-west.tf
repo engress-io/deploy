@@ -83,21 +83,31 @@ module "engress_edge_irsa_west" {
 
 resource "aws_iam_role_policy" "engress_edge_west" {
   count = var.enable_eks_west ? 1 : 0
-  name  = "${var.name_prefix}-edge-west-ecr"
+  name  = "${var.name_prefix}-edge-west-ecr-ssm"
   role  = module.engress_edge_irsa_west[0].iam_role_name
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = [
-        "ecr:GetAuthorizationToken",
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:GetDownloadUrlForLayer",
-        "ecr:BatchGetImage",
-      ]
-      Resource = "*"
-    }]
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+        ]
+        Resource = "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/*"
+      },
+    ]
   })
 }
 
