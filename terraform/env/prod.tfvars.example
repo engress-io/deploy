@@ -19,3 +19,13 @@ decommission_ec2          = true
 deploy_target             = "eks"
 spa_bucket_name           = "flux-spa-327796148992"
 amplify_domain            = "main.dftigsyg375wb.amplifyapp.com"
+
+# EKS sizing — start on t4g.small; scale out via desired/max before bumping instance type.
+eks_system_node_instance_type   = "t4g.small"
+eks_system_node_min_size        = 2
+eks_system_node_desired_size    = 2
+eks_system_node_max_size        = 6
+eks_workload_node_instance_type = "t4g.small"
+eks_workload_node_min_size      = 2
+eks_workload_node_desired_size  = 2
+eks_workload_node_max_size      = 8

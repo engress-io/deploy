@@ -5,9 +5,15 @@ engress_ensure_terraform_tfvars() {
   local dest="${1:-terraform.tfvars}"
   local aws_region="${AWS_REGION:-us-east-2}"
 
-  if [[ -f "$dest" ]] && grep -qE '^\s*admin_email\s*=' "$dest" && grep -qE '^\s*elastic_ip_address\s*=' "$dest"; then
-    echo "Using existing $dest"
-    return 0
+  if [[ -f "$dest" ]] && grep -qE '^\s*admin_email\s*=' "$dest"; then
+    if [[ "${ENGRESS_ENV:-prod}" == "staging" ]] && grep -qE 'environment\s*=\s*"staging"' "$dest"; then
+      echo "Using existing staging $dest"
+      return 0
+    fi
+    if [[ "${ENGRESS_ENV:-prod}" != "staging" ]] && grep -qE '^\s*elastic_ip_address\s*=' "$dest"; then
+      echo "Using existing $dest"
+      return 0
+    fi
   fi
 
   if [[ -n "${TERRAFORM_TFVARS_FILE:-}" && -f "$TERRAFORM_TFVARS_FILE" ]]; then
@@ -17,9 +23,13 @@ engress_ensure_terraform_tfvars() {
   fi
 
   if command -v aws >/dev/null 2>&1; then
-    if aws ssm get-parameter --name engress-terraform-tfvars --with-decryption --region "$aws_region" \
+    local ssm_name="engress-terraform-tfvars"
+    if [[ "${ENGRESS_ENV:-prod}" == "staging" ]]; then
+      ssm_name="engress-terraform-tfvars-staging"
+    fi
+    if aws ssm get-parameter --name "$ssm_name" --with-decryption --region "$aws_region" \
       --query 'Parameter.Value' --output text >"$dest" 2>/dev/null; then
-      echo "Using terraform.tfvars from SSM engress-terraform-tfvars"
+      echo "Using terraform.tfvars from SSM $ssm_name"
       return 0
     fi
   fi

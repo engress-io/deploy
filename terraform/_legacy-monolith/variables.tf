@@ -254,8 +254,8 @@ variable "eks_cluster_version" {
 
 variable "eks_system_node_instance_type" {
   type        = string
-  description = "Instance type for system node group"
-  default     = "t4g.medium"
+  description = "Instance type for system node group (use t4g.small initially; raise via tfvars when ramping)"
+  default     = "t4g.small"
 }
 
 variable "eks_system_node_min_size" {
@@ -285,8 +285,8 @@ variable "eks_workload_node_desired_size" {
 
 variable "eks_workload_node_instance_type" {
   type        = string
-  description = "Instance type for workload node group"
-  default     = "t4g.medium"
+  description = "Instance type for workload node group (use t4g.small initially; raise via tfvars when ramping)"
+  default     = "t4g.small"
 }
 
 variable "eks_workload_max_nodes" {

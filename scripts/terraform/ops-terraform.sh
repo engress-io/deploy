@@ -26,7 +26,12 @@ PLAN_FILE="${PLAN_FILE:-terraform.plan.bin}"
 cd "$TF_DIR"
 export ENGRESS_ADMIN_EMAIL="${ENGRESS_ADMIN_EMAIL:-walter@ghostweasel.net}"
 engress_ensure_terraform_tfvars terraform.tfvars
-terraform init -input=false
+
+BACKEND_KEY="${ENGRESS_TFSTATE_KEY:-engress/core/terraform.tfstate}"
+if [[ "${ENGRESS_ENV:-prod}" == "staging" ]]; then
+  BACKEND_KEY="${ENGRESS_TFSTATE_KEY:-engress/deploy/staging/terraform.tfstate}"
+fi
+terraform init -input=false -reconfigure -backend-config="key=${BACKEND_KEY}"
 
 # Optional: validate SSM canonical flags before mutating applies
 if [[ "$ACTION" == apply* ]] && [[ -x "$SCRIPT_DIR/audit-ssm-tfvars.sh" ]]; then
