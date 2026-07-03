@@ -18,7 +18,10 @@ fi
 
 PROTECTED_TYPES='aws_eks_cluster|aws_eks_node_group|aws_globalaccelerator_accelerator|aws_globalaccelerator_listener|aws_globalaccelerator_endpoint_group|aws_vpc|aws_s3_bucket|aws_cloudfront_distribution'
 
-mapfile -t DESTROYS < <(
+DESTROYS=()
+while IFS= read -r line; do
+  [[ -n "$line" ]] && DESTROYS+=("$line")
+done < <(
   terraform show -json "$PLAN" | jq -r --arg re "$PROTECTED_TYPES" '
     .resource_changes[]?
     | select(.change.actions[]? == "delete")

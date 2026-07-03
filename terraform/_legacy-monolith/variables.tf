@@ -289,9 +289,9 @@ variable "eks_workload_node_instance_type" {
   default     = "t4g.small"
 }
 
-variable "eks_workload_max_nodes" {
+variable "eks_workload_node_max_size" {
   type        = number
-  description = "Maximum workload nodes"
+  description = "Maximum workload nodes (scale out before raising instance type)"
   default     = 8
 }
 

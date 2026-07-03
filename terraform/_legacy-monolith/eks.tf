@@ -52,7 +52,7 @@ module "eks" {
       instance_types = [var.eks_workload_node_instance_type]
       ami_type       = "AL2023_ARM_64_STANDARD"
       min_size       = var.eks_workload_node_min_size
-      max_size       = var.eks_workload_max_nodes
+      max_size       = var.eks_workload_node_max_size
       desired_size   = var.eks_workload_node_desired_size
 
       labels = {
