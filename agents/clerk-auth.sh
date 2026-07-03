@@ -119,6 +119,10 @@ cmd_configure() {
   clerk_ensure_redirect_urls "$ENGRESS_APP_ORIGIN"
   echo "==> beta auth (no org gate on sign-up)"
   clerk_configure_beta_auth
+  if [[ "${ENGRESS_ENV:-prod}" == "staging" ]]; then
+    echo "==> satellite domain for ${ENGRESS_APP_ORIGIN#https://}"
+    clerk_ensure_satellite_domain "${ENGRESS_APP_ORIGIN#https://}"
+  fi
   echo "==> done — configure instance only (SSM/SPA unchanged)"
 }
 
