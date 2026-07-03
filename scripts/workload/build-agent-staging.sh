@@ -16,6 +16,11 @@ if [[ -z "$BUCKET" ]]; then
   BUCKET="$(aws ssm get-parameter --name engress-staging-downloads-bucket --region "$REGION" --query 'Parameter.Value' --output text 2>/dev/null || true)"
 fi
 BUCKET="${BUCKET:-flux-downloads-327796148992}"
+if [[ "${ENGRESS_ENV:-prod}" == "staging" && -z "${ENGRESS_STAGING_DOWNLOADS_BUCKET:-}" ]]; then
+  # staging.engress.io CloudFront serves /downloads/* from the SPA origin bucket
+  BUCKET="$(aws ssm get-parameter --name engress-staging-spa-bucket --region "$REGION" --query 'Parameter.Value' --output text 2>/dev/null || true)"
+  BUCKET="${BUCKET:-engress-staging-spa-327796148992}"
+fi
 PREFIX="${ENGRESS_STAGING_DOWNLOADS_PREFIX:-downloads/staging/latest}"
 
 EDGE_ADDR="${ENGRESS_STAGING_EDGE_ADDR:-}"
@@ -27,7 +32,7 @@ EDGE_ADDR="${EDGE_ADDR:-staging-edge:4433}"
 BASE_DOMAIN="${ENGRESS_DEPLOY_BASE_DOMAIN:-staging.engress.io}"
 
 VERSION="${ENGRESS_AGENT_STAGING_VERSION:-staging-$(git -C "$ENGRESS_CORE_ROOT" rev-parse --short HEAD 2>/dev/null || date +%Y%m%d)}"
-SDK_VERSION=$(grep 'github.com/engress-io/sdk' "$AGENT_ROOT/go.mod" | awk '{print $2}' | sed 's/v//')
+SDK_VERSION=$(grep 'github.com/engress-io/sdk' "$AGENT_ROOT/go.mod" | grep -v '^replace' | awk '{print $2}' | sed 's/^v//')
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -37,7 +42,7 @@ base_domain: "${BASE_DOMAIN}"
 domain_suffix: ".edge.${BASE_DOMAIN}"
 EOF
 
-LDFLAGS="-s -w -X github.com/engress-io/agent/internal/version.Version=${VERSION} -X github.com/engress-io/agent/internal/version.SDKVersion=${SDK_VERSION}"
+LDFLAGS="-s -w -X 'github.com/engress-io/agent/internal/version.Version=${VERSION}' -X 'github.com/engress-io/agent/internal/version.SDKVersion=${SDK_VERSION}'"
 
 mkdir -p "$TMP/dist"
 cd "$AGENT_ROOT"
