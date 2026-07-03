@@ -34,8 +34,23 @@ export VITE_CLERK_SIGN_UP_ENABLED="${VITE_CLERK_SIGN_UP_ENABLED:-true}"
 if [[ "${ENGRESS_ENV:-prod}" == "staging" ]]; then
   export VITE_CLERK_IS_SATELLITE="${VITE_CLERK_IS_SATELLITE:-true}"
   export VITE_CLERK_DOMAIN="${VITE_CLERK_DOMAIN:-staging.engress.io}"
-  export VITE_CLERK_SIGN_IN_URL="${VITE_CLERK_SIGN_IN_URL:-https://staging.engress.io/sign-in}"
-  export VITE_CLERK_SIGN_UP_URL="${VITE_CLERK_SIGN_UP_URL:-https://staging.engress.io/sign-up}"
+  primary_portal="${CLERK_PRIMARY_ACCOUNTS_URL:-}"
+  if [[ -z "$primary_portal" ]]; then
+    primary_portal="$(clerk_pk_accounts_portal_url "$PK" 2>/dev/null || true)"
+  fi
+  if [[ -z "$primary_portal" ]]; then
+    clerk_load_credentials "$REGION" 2>/dev/null || true
+    primary_portal="$(clerk_primary_accounts_portal_url 2>/dev/null || true)"
+  fi
+  if [[ -n "$primary_portal" ]]; then
+    export VITE_CLERK_SIGN_IN_URL="${VITE_CLERK_SIGN_IN_URL:-${primary_portal}/sign-in}"
+    export VITE_CLERK_SIGN_UP_URL="${VITE_CLERK_SIGN_UP_URL:-${primary_portal}/sign-up}"
+    echo "  Clerk satellite primary sign-in: ${VITE_CLERK_SIGN_IN_URL}"
+  else
+    echo "WARN: could not resolve Clerk primary accounts URL — satellite sign-in may hang" >&2
+    export VITE_CLERK_SIGN_IN_URL="${VITE_CLERK_SIGN_IN_URL:-https://staging.engress.io/sign-in}"
+    export VITE_CLERK_SIGN_UP_URL="${VITE_CLERK_SIGN_UP_URL:-https://staging.engress.io/sign-up}"
+  fi
 fi
 npm run build
 

@@ -1,17 +1,39 @@
 #!/usr/bin/env bash
-# Clerk Backend API helpers for Engress production auth.
+# Clerk Backend API helpers for Engress auth (prod + staging).
 # Credentials (first match wins):
 #   Cursor cloud: CLERK_SECRET_KEY, CLERK_PUBLISHABLE_KEY, CLERK_WEBHOOK_SECRET
+#   Staging:      STAGING_CLERK_SECRET_KEY, STAGING_CLERK_PUBLISHABLE_KEY (when ENGRESS_ENV=staging)
 #   Aliases:      CLERK_SK, CLERK_PK, VITE_CLERK_PUBLISHABLE_KEY, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-#   SSM:          clerk-secret-key, next-clerk-publishable-key, clerk-webhook-secret
+#   SSM prod:     clerk-secret-key, next-clerk-publishable-key, clerk-webhook-secret
+#   SSM staging:  engress-staging-clerk-secret-key, engress-staging-clerk-publishable-key, ...
 CLERK_API_BASE="${CLERK_API_BASE:-https://api.clerk.com/v1}"
 
 ENGRESS_CLERK_ORG_ID="${ENGRESS_CLERK_ORG_ID:-${CLERK_ORG_ID:-org_3FN4VwPcUUsNUKi0yf6cdFLhG7J}}"
 ENGRESS_CLERK_PLATFORM_ADMIN_ID="${ENGRESS_CLERK_PLATFORM_ADMIN_ID:-user_3FN549eRWLmoIm1HJZH1zdN2zin}"
-ENGRESS_APP_ORIGIN="${ENGRESS_APP_ORIGIN:-https://engress.io}"
+
+clerk_resolve_env() {
+  case "${ENGRESS_ENV:-prod}" in
+    staging)
+      CLERK_SSM_SECRET="${CLERK_SSM_SECRET:-engress-staging-clerk-secret-key}"
+      CLERK_SSM_PUBLISHABLE="${CLERK_SSM_PUBLISHABLE:-engress-staging-clerk-publishable-key}"
+      CLERK_SSM_WEBHOOK="${CLERK_SSM_WEBHOOK:-engress-staging-clerk-webhook-secret}"
+      ENGRESS_APP_ORIGIN="${ENGRESS_APP_ORIGIN:-https://staging.engress.io}"
+      ;;
+    *)
+      CLERK_SSM_SECRET="${CLERK_SSM_SECRET:-clerk-secret-key}"
+      CLERK_SSM_PUBLISHABLE="${CLERK_SSM_PUBLISHABLE:-next-clerk-publishable-key}"
+      CLERK_SSM_WEBHOOK="${CLERK_SSM_WEBHOOK:-clerk-webhook-secret}"
+      ENGRESS_APP_ORIGIN="${ENGRESS_APP_ORIGIN:-https://engress.io}"
+      ;;
+  esac
+  export CLERK_SSM_SECRET CLERK_SSM_PUBLISHABLE CLERK_SSM_WEBHOOK ENGRESS_APP_ORIGIN
+}
+
+clerk_resolve_env
 
 clerk_load_credentials() {
   local region="${1:-us-east-2}"
+  clerk_resolve_env
 
   # Whitespace-only env (e.g. unset GitHub secret) → fall through to SSM.
   [[ "${CLERK_SECRET_KEY:-}" =~ ^[[:space:]]*$ ]] && unset CLERK_SECRET_KEY
@@ -20,25 +42,34 @@ clerk_load_credentials() {
 
   # Cursor / dashboard aliases (including SSM param-style names).
   if [[ -z "${CLERK_SECRET_KEY:-}" ]]; then
-    CLERK_SECRET_KEY="${CLERK_SK:-${CLERK_SECRET:-}}"
+    if [[ "${ENGRESS_ENV:-prod}" == "staging" ]]; then
+      CLERK_SECRET_KEY="${STAGING_CLERK_SECRET_KEY:-}"
+    fi
+    CLERK_SECRET_KEY="${CLERK_SECRET_KEY:-${CLERK_SK:-${CLERK_SECRET:-}}}"
     # bash disallows hyphens in var names — read via env if set by platform
     CLERK_SECRET_KEY="${CLERK_SECRET_KEY:-$(printenv clerk-secret-key 2>/dev/null || true)}"
   fi
   if [[ -z "${CLERK_PUBLISHABLE_KEY:-}" ]]; then
-    CLERK_PUBLISHABLE_KEY="${CLERK_PK:-${CLERK_PUBLISHABLE:-${VITE_CLERK_PUBLISHABLE_KEY:-${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}}}}"
+    if [[ "${ENGRESS_ENV:-prod}" == "staging" ]]; then
+      CLERK_PUBLISHABLE_KEY="${STAGING_CLERK_PUBLISHABLE_KEY:-}"
+    fi
+    CLERK_PUBLISHABLE_KEY="${CLERK_PUBLISHABLE_KEY:-${CLERK_PK:-${CLERK_PUBLISHABLE:-${VITE_CLERK_PUBLISHABLE_KEY:-${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}}}}}"
     CLERK_PUBLISHABLE_KEY="${CLERK_PUBLISHABLE_KEY:-$(printenv next-clerk-publishable-key 2>/dev/null || true)}"
   fi
   if [[ -z "${CLERK_WEBHOOK_SECRET:-}" ]]; then
-    CLERK_WEBHOOK_SECRET="${CLERK_WEBHOOK:-$(printenv clerk-webhook-secret 2>/dev/null || true)}"
+    if [[ "${ENGRESS_ENV:-prod}" == "staging" ]]; then
+      CLERK_WEBHOOK_SECRET="${STAGING_CLERK_WEBHOOK_SECRET:-}"
+    fi
+    CLERK_WEBHOOK_SECRET="${CLERK_WEBHOOK_SECRET:-$(printenv clerk-webhook-secret 2>/dev/null || true)}"
   fi
 
   if [[ -z "${CLERK_SECRET_KEY:-}" || -z "${CLERK_PUBLISHABLE_KEY:-}" ]]; then
     if command -v aws >/dev/null; then
-      CLERK_SECRET_KEY="${CLERK_SECRET_KEY:-$(aws ssm get-parameter --name clerk-secret-key --with-decryption \
+      CLERK_SECRET_KEY="${CLERK_SECRET_KEY:-$(aws ssm get-parameter --name "$CLERK_SSM_SECRET" --with-decryption \
         --region "$region" --query Parameter.Value --output text 2>/dev/null || true)}"
-      CLERK_PUBLISHABLE_KEY="${CLERK_PUBLISHABLE_KEY:-$(aws ssm get-parameter --name next-clerk-publishable-key \
+      CLERK_PUBLISHABLE_KEY="${CLERK_PUBLISHABLE_KEY:-$(aws ssm get-parameter --name "$CLERK_SSM_PUBLISHABLE" \
         --region "$region" --query Parameter.Value --output text 2>/dev/null || true)}"
-      CLERK_WEBHOOK_SECRET="${CLERK_WEBHOOK_SECRET:-$(aws ssm get-parameter --name clerk-webhook-secret --with-decryption \
+      CLERK_WEBHOOK_SECRET="${CLERK_WEBHOOK_SECRET:-$(aws ssm get-parameter --name "$CLERK_SSM_WEBHOOK" --with-decryption \
         --region "$region" --query Parameter.Value --output text 2>/dev/null || true)}"
     fi
   fi
@@ -79,6 +110,29 @@ clerk_pk_frontend_host() {
   [[ "$pk" == pk_* ]] || return 1
   local payload="${pk#pk_*_}"
   echo "$payload" | python3 -c 'import sys,base64; b=sys.stdin.read().strip(); b+="="*((4-len(b)%4)%4); print(base64.b64decode(b).decode().rstrip("$"))' 2>/dev/null || true
+}
+
+# Dev Clerk apps: pk embeds *.clerk.accounts.dev → primary accounts portal for satellite sign-in.
+clerk_pk_accounts_portal_url() {
+  local pk="$1"
+  local host slug
+  host="$(clerk_pk_frontend_host "$pk")"
+  [[ -n "$host" ]] || return 1
+  slug="${host%%.clerk.accounts.dev}"
+  [[ "$slug" != "$host" ]] || return 1
+  echo "https://${slug}.accounts.dev"
+}
+
+clerk_primary_accounts_portal_url() {
+  local host
+  host="$(clerk_primary_domain_host 2>/dev/null || true)"
+  [[ -n "$host" ]] || return 1
+  local slug="${host%%.clerk.accounts.dev}"
+  if [[ "$slug" != "$host" ]]; then
+    echo "https://${slug}.accounts.dev"
+    return 0
+  fi
+  echo "https://${host}"
 }
 
 clerk_primary_domain_host() {
@@ -178,15 +232,26 @@ clerk_configure_beta_auth() {
   python3 -c 'import sys,json; d=json.load(sys.stdin); print("  org gate enabled=", d.get("enabled"), "force=", d.get("force_organization_selection"))' <<<"$body"
 }
 
+clerk_verify_instance() {
+  local code body
+  body="$(clerk_api GET "/instance")"
+  code="${body%%$'\n'*}"
+  body="${body#*$'\n'}"
+  [[ "$code" == "200" ]] || { echo "ERROR: GET /instance HTTP $code" >&2; echo "$body" >&2; return 1; }
+  python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("id",""), d.get("environment_type",""))' <<<"$body"
+  return 0
+}
+
 clerk_sync_ssm_from_env() {
   local region="${1:-us-east-2}"
   command -v aws >/dev/null || { echo "ERROR: aws CLI required for SSM sync" >&2; return 1; }
   clerk_load_credentials "$region" || return 1
+  clerk_resolve_env
   local attempt
   for attempt in 1 2 3 4 5; do
-    if aws ssm put-parameter --name next-clerk-publishable-key --type String \
+    if aws ssm put-parameter --name "$CLERK_SSM_PUBLISHABLE" --type String \
       --value "$CLERK_PUBLISHABLE_KEY" --overwrite --region "$region" >/dev/null 2>&1 \
-      && aws ssm put-parameter --name clerk-secret-key --type SecureString \
+      && aws ssm put-parameter --name "$CLERK_SSM_SECRET" --type SecureString \
       --value "$CLERK_SECRET_KEY" --overwrite --region "$region" >/dev/null 2>&1; then
       break
     fi
@@ -198,8 +263,8 @@ clerk_sync_ssm_from_env() {
     sleep 3
   done
   if [[ -n "${CLERK_WEBHOOK_SECRET:-}" ]]; then
-    aws ssm put-parameter --name clerk-webhook-secret --type SecureString \
+    aws ssm put-parameter --name "$CLERK_SSM_WEBHOOK" --type SecureString \
       --value "$CLERK_WEBHOOK_SECRET" --overwrite --region "$region" >/dev/null
   fi
-  echo "SSM updated: next-clerk-publishable-key, clerk-secret-key${CLERK_WEBHOOK_SECRET:+, clerk-webhook-secret}"
+  echo "SSM updated: ${CLERK_SSM_PUBLISHABLE}, ${CLERK_SSM_SECRET}${CLERK_WEBHOOK_SECRET:+, ${CLERK_SSM_WEBHOOK}}"
 }
