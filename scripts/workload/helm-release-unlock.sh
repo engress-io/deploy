@@ -11,7 +11,16 @@ if ! helm status "$release" -n "$namespace" -o json 2>/dev/null | jq -e . >/dev/
 fi
 
 status="$(helm status "$release" -n "$namespace" -o json | jq -r '.info.status')"
-if [[ "$status" == "pending-upgrade" || "$status" == "pending-install" ]]; then
-  echo "WARN: clearing pending ${release} helm release (status=${status})"
-  helm rollback "$release" -n "$namespace" || true
-fi
+case "$status" in
+  pending-upgrade|pending-install|pending-rollback)
+    echo "WARN: clearing pending ${release} helm release (status=${status})"
+    helm rollback "$release" -n "$namespace" 0 2>/dev/null || helm rollback "$release" -n "$namespace" || true
+    ;;
+  failed|unknown)
+    last="$(helm history "$release" -n "$namespace" -o json 2>/dev/null | jq -r '[.[] | select(.status=="deployed") | .revision] | last // empty')"
+    if [[ -n "$last" ]]; then
+      echo "WARN: rolling back failed ${release} to revision ${last}"
+      helm rollback "$release" -n "$namespace" "$last" || true
+    fi
+    ;;
+esac
