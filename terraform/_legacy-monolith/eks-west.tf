@@ -21,6 +21,9 @@ module "eks_west" {
   cluster_endpoint_public_access  = true
   cluster_endpoint_private_access = true
 
+  cluster_enabled_log_types              = []
+  cloudwatch_log_group_retention_in_days = 7
+
   vpc_id     = module.vpc_west[0].vpc_id
   subnet_ids = module.vpc_west[0].private_subnets
 
