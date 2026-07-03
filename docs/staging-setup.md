@@ -336,6 +336,12 @@ After edge deploy, CI publishes to `staging.engress.io/downloads/staging/latest/
 ./deploy/scripts/workload/build-agent-staging.sh
 ```
 
+Bootstrap your staff account (after signing up on staging Clerk):
+
+```bash
+ENGRESS_ENV=staging ./deploy/scripts/cluster/staging-bootstrap-admin.sh dave@engress.io
+```
+
 Test agent:
 
 ```bash

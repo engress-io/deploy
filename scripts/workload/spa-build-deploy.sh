@@ -53,7 +53,10 @@ if [[ "${ENGRESS_ENV:-prod}" == "staging" ]]; then
   fi
   export VITE_CLERK_ALLOWED_REDIRECT_ORIGINS="${VITE_CLERK_ALLOWED_REDIRECT_ORIGINS:-https://staging.engress.io}"
   export VITE_STAGING_STAFF_ONLY="${VITE_STAGING_STAFF_ONLY:-true}"
-  export VITE_CLERK_SIGN_UP_ENABLED="${VITE_CLERK_SIGN_UP_ENABLED:-false}"
+  export VITE_ENGRESS_ENV=staging
+  export VITE_STAGING_APP_ORIGIN="${VITE_STAGING_APP_ORIGIN:-https://staging.engress.io}"
+  export VITE_AGENT_DOWNLOADS_BASE_URL="${VITE_AGENT_DOWNLOADS_BASE_URL:-https://staging.engress.io/downloads/staging/latest}"
+  export VITE_CLERK_SIGN_UP_ENABLED="${VITE_CLERK_SIGN_UP_ENABLED:-true}"
 fi
 npm run build
 

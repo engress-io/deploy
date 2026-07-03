@@ -48,7 +48,7 @@ config:
   environment: staging
   staffOnly: true
   staffEmailDomains: "ghostweasel.net,engress.io"
-  staffOrgId: "org_3FN4VwPcUUsNUKi0yf6cdFLhG7J"
+  staffOrgId: ""
 
 sessionKeySecret: engress-core-secrets-staging
 
