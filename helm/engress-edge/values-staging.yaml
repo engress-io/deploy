@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: 327796148992.dkr.ecr.us-east-2.amazonaws.com/engress-edge
+  repository: 327796148992.dkr.ecr.us-east-2.amazonaws.com/engress-staging-edge
   tag: latest
   pullPolicy: Always
 
