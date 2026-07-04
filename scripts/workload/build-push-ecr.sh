@@ -50,15 +50,20 @@ PUSH_LATEST="${PUSH_LATEST:-1}"
 TAG="${ENGRESS_IMAGE_TAG:-${FLUX_IMAGE_TAG:-$(container_tag_from_tfvars)}}"
 
 REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-$("$TF" -chdir="$TF_DIR" output -raw aws_region 2>/dev/null || echo us-east-2)}}"
-EDGE_REPO="${ECR_EDGE_REPOSITORY:-$("$TF" -chdir="$TF_DIR" output -raw ecr_edge_repository_url 2>/dev/null || true)}"
-API_REPO="${ECR_API_REPOSITORY:-${ECR_CORE_REPOSITORY:-$("$TF" -chdir="$TF_DIR" output -raw ecr_api_repository_url 2>/dev/null || true)}}"
+ACCOUNT="${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text 2>/dev/null || true)}"
+ACCOUNT="${ACCOUNT:-327796148992}"
 
-if [[ -z "$EDGE_REPO" || -z "$API_REPO" ]]; then
-  ACCOUNT="${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text 2>/dev/null || true)}"
-  ACCOUNT="${ACCOUNT:-327796148992}"
-  EDGE_REPO="${EDGE_REPO:-${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/engress-edge}"
-  API_REPO="${API_REPO:-${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/engress-core}"
-  echo "Using default ECR repositories (terraform outputs unavailable)"
+if [[ "${ENGRESS_ENV:-prod}" == "staging" ]]; then
+  EDGE_REPO="${ECR_EDGE_REPOSITORY:-${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/engress-staging-edge}"
+  API_REPO="${ECR_API_REPOSITORY:-${ECR_CORE_REPOSITORY:-${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/engress-staging-core}}"
+else
+  EDGE_REPO="${ECR_EDGE_REPOSITORY:-$("$TF" -chdir="$TF_DIR" output -raw ecr_edge_repository_url 2>/dev/null || true)}"
+  API_REPO="${ECR_API_REPOSITORY:-${ECR_CORE_REPOSITORY:-$("$TF" -chdir="$TF_DIR" output -raw ecr_api_repository_url 2>/dev/null || true)}}"
+  if [[ -z "$EDGE_REPO" || -z "$API_REPO" ]]; then
+    EDGE_REPO="${EDGE_REPO:-${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/engress-edge}"
+    API_REPO="${API_REPO:-${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/engress-core}"
+    echo "Using default ECR repositories (terraform outputs unavailable)"
+  fi
 fi
 
 # shellcheck source=/dev/null
